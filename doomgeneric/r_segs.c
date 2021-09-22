@@ -396,7 +396,11 @@ R_StoreWallRange
     
     // calculate rw_distance for scale calculation
     rw_normalangle = curline->angle + ANG90;
+#ifdef DOOMREPLAY
+    offsetangle = abs((int)(rw_normalangle-rw_angle1));
+#else
     offsetangle = abs(rw_normalangle-rw_angle1);
+#endif
     
     if (offsetangle > ANG90)
 	offsetangle = ANG90;

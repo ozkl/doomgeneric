@@ -361,7 +361,9 @@ void W_ReadLump(unsigned int lump, void *dest)
 		 c, l->size, lump);	
     }
 
+#ifndef DOOMREPLAY
     I_EndRead ();
+#endif
 }
 
 

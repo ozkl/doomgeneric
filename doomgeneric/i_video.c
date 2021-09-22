@@ -37,6 +37,9 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 #include "doomkeys.h"
 
 #include "doomgeneric.h"
+#ifdef DOOMREPLAY
+#include "doomreplay.h"
+#endif
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -252,6 +255,14 @@ void I_UpdateNoBlit (void)
 
 void I_FinishUpdate (void)
 {
+#ifdef DOOMREPLAY
+    // no need to blit the VideoBuffer if it is not time to record yet
+    if (DR_NeedRender(0) == false) {
+        DG_DrawFrame();
+        return;
+    }
+#endif
+
     int y;
     int x_offset, y_offset, x_offset_end;
     unsigned char *line_in, *line_out;
@@ -374,6 +385,10 @@ int I_GetPaletteIndex (int r, int g, int b)
     }
 
     return best;
+#ifdef DOOMREPLAY
+    // fix compile warning
+    (void) (rcsid);
+#endif
 }
 
 void I_BeginRead (void)

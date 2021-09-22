@@ -1,0 +1,6 @@
+.savegame/
+build/
+doom1.wad
+doomgeneric
+input.txt
+*.mp4

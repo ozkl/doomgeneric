@@ -74,6 +74,10 @@
 
 #include "d_main.h"
 
+#ifdef DOOMREPLAY
+#include "doomreplay.h"
+#endif
+
 //
 // D-DoomLoop()
 // Not a globally visible function,
@@ -236,6 +240,12 @@ void D_Display (void)
 		break;
     }
     
+#ifdef DOOMREPLAY
+    // do not render the scene if we are not going to record the current frame.
+    // start drawing stuff 100 frames earlier than necessary, just in case we
+    // need to start during a screen wipe
+    if (DR_NeedRender(100)) {
+#endif
     // draw buffered stuff to screen
     I_UpdateNoBlit ();
     
@@ -275,6 +285,9 @@ void D_Display (void)
 
         V_DrawMouseSpeedBox(testcontrols_mousespeed);
     }
+#ifdef DOOMREPLAY
+    }
+#endif
 
     menuactivestate = menuactive;
     viewactivestate = viewactive;
@@ -314,9 +327,14 @@ void D_Display (void)
     {
 	do
 	{
+#ifdef DOOMREPLAY
+        // during screen wipe, we are stuck in this loop so we
+        // have to update the artificial clock on each iteration
+        DR_UpdateTime();
+#endif
 	    nowtime = I_GetTime ();
 	    tics = nowtime - wipestart;
-            I_Sleep(1);
+	     I_Sleep(1);
 	} while (tics <= 0);
         
 	wipestart = nowtime;
@@ -443,6 +461,12 @@ void D_DoomLoop (void)
     {
 		// frame syncronous IO operations
 		I_StartFrame ();
+
+#ifdef DOOMREPLAY
+		// feed keyboard events from our replay input before the next
+		// frame is rendered
+		DR_ProcessInput ();
+#endif
 
 		TryRunTics (); // will run at least one tic
 

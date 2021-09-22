@@ -388,5 +388,11 @@ void StatDump(void)
         }
     }
 #endif
+#ifdef DOOMREPLAY
+    // fix compile warnings
+    return;
+    (void) (doom1_par_times);
+    (void) (doom2_par_times);
+#endif
 }
 
