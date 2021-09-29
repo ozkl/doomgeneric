@@ -1821,6 +1821,11 @@ boolean M_Responder (event_t* ev)
     {
         // Activate menu item
 
+#ifdef DOOMREPLAY
+	// disable save game and quit game
+	if (strcmp(currentMenu->menuitems[itemOn].name, "M_SAVEG") == 0) return false;
+	if (strcmp(currentMenu->menuitems[itemOn].name, "M_QUITG") == 0) return false;
+#endif
 	if (currentMenu->menuitems[itemOn].routine &&
 	    currentMenu->menuitems[itemOn].status)
 	{
