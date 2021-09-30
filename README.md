@@ -22,13 +22,14 @@ d   - down
 a   - alt
 s   - shift
 p   - use
-f   - fir
+f   - fire
+t   - tab
 0-9 - weapons
 ```
 
 ## Examples
 
 ```bash
-./doomgeneric -iwad doom1.wad -input ../input/sample0.txt -nrecord 350 -framerate 35 -render_frame -render_input -render_username -output replay.mp4
+./doomgeneric -iwad doom1.wad -input ../input/solve1.txt -nrecord 1200 -framerate 35 -render_frame -render_input -render_username -output replay.mp4
 vlc replay.mp4
 ```
