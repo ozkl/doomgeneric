@@ -14,6 +14,7 @@ typedef enum {
     dr_key_shift,
     dr_key_use,
     dr_key_fire,
+    dr_key_tab,
     dr_key_0,
     dr_key_1,
     dr_key_2,

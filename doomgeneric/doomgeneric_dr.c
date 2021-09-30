@@ -71,6 +71,7 @@ void DR_Init(replay_data_t replay_data) {
     g_key_map[dr_key_shift ] = KEY_RSHIFT;
     g_key_map[dr_key_use   ] = KEY_USE;
     g_key_map[dr_key_fire  ] = KEY_FIRE;
+    g_key_map[dr_key_tab   ] = KEY_TAB;
     g_key_map[dr_key_0     ] = '0';
     g_key_map[dr_key_1     ] = '1';
     g_key_map[dr_key_2     ] = '2';
@@ -170,6 +171,7 @@ void DG_DrawFrame() {
                 if (pressed[dr_key_shift])  strcat(t, "s");
                 if (pressed[dr_key_use])    strcat(t, "p");
                 if (pressed[dr_key_fire])   strcat(t, "f");
+                if (pressed[dr_key_tab])    strcat(t, "t");
                 if (pressed[dr_key_0])      strcat(t, "0");
                 if (pressed[dr_key_1])      strcat(t, "1");
                 if (pressed[dr_key_2])      strcat(t, "2");

@@ -214,6 +214,7 @@ int main(int argc, char **argv)
                 case 's': frame->pressed[dr_key_shift]  = 1; break;
                 case 'p': frame->pressed[dr_key_use]    = 1; break;
                 case 'f': frame->pressed[dr_key_fire]   = 1; break;
+                case 't': frame->pressed[dr_key_tab]    = 1; break;
                 case '0': frame->pressed[dr_key_0]      = 1; break;
                 case '1': frame->pressed[dr_key_1]      = 1; break;
                 case '2': frame->pressed[dr_key_2]      = 1; break;
