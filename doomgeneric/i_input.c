@@ -323,7 +323,10 @@ void I_GetEvent(void)
             {
                 D_PostEvent(&event);
             }
+#ifndef DOOMREPLAY
+            // this breaks fire after key release
             break;
+#endif
         }
     }
 

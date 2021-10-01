@@ -181,7 +181,6 @@ int main(int argc, char **argv)
     int cur_username = 0;
 
     for (int i = 0; i < fsize; ++i) {
-
         frame_data_t    * frame    = replay_data.frames + cur_frame;
         username_data_t * username = replay_data.usernames + cur_username;
 

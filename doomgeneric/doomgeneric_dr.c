@@ -107,6 +107,9 @@ void DR_ProcessInput() {
             if (g_replay_data.frames[g_frame_id].pressed[i] != g_pressed_last[i]) {
                 int pressed = g_pressed_last[i] ? 0 : 1;
                 addConvertedKeyToQueue(pressed, g_key_map[i]);
+            } else {
+                int pressed = g_replay_data.frames[g_frame_id].pressed[i];
+                if (pressed) addConvertedKeyToQueue(pressed, g_key_map[i]);
             }
         }
 
