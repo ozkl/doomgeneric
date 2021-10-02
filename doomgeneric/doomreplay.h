@@ -1,7 +1,7 @@
 #ifndef DOOM_REPLAY_H
 #define DOOM_REPLAY_H
 
-typedef unsigned char dr_keys_t[24];
+typedef unsigned char dr_keys_t[32];
 
 typedef enum {
     dr_key_escape = 0,
@@ -15,6 +15,10 @@ typedef enum {
     dr_key_use,
     dr_key_fire,
     dr_key_tab,
+    dr_key_yes,
+    dr_key_no,
+    dr_key_strafe_left,
+    dr_key_strafe_right,
     dr_key_0,
     dr_key_1,
     dr_key_2,

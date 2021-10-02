@@ -61,27 +61,31 @@ static void addConvertedKeyToQueue(int pressed, unsigned char key) {
 }
 
 void DR_Init(replay_data_t replay_data) {
-    g_key_map[dr_key_escape] = KEY_ESCAPE;
-    g_key_map[dr_key_enter ] = KEY_ENTER;
-    g_key_map[dr_key_left  ] = KEY_LEFTARROW;
-    g_key_map[dr_key_right ] = KEY_RIGHTARROW;
-    g_key_map[dr_key_up    ] = KEY_UPARROW;
-    g_key_map[dr_key_down  ] = KEY_DOWNARROW;
-    g_key_map[dr_key_alt   ] = KEY_LALT;
-    g_key_map[dr_key_shift ] = KEY_RSHIFT;
-    g_key_map[dr_key_use   ] = KEY_USE;
-    g_key_map[dr_key_fire  ] = KEY_FIRE;
-    g_key_map[dr_key_tab   ] = KEY_TAB;
-    g_key_map[dr_key_0     ] = '0';
-    g_key_map[dr_key_1     ] = '1';
-    g_key_map[dr_key_2     ] = '2';
-    g_key_map[dr_key_3     ] = '3';
-    g_key_map[dr_key_4     ] = '4';
-    g_key_map[dr_key_5     ] = '5';
-    g_key_map[dr_key_6     ] = '6';
-    g_key_map[dr_key_7     ] = '7';
-    g_key_map[dr_key_8     ] = '8';
-    g_key_map[dr_key_9     ] = '9';
+    g_key_map[dr_key_escape      ] = KEY_ESCAPE;
+    g_key_map[dr_key_enter       ] = KEY_ENTER;
+    g_key_map[dr_key_left        ] = KEY_LEFTARROW;
+    g_key_map[dr_key_right       ] = KEY_RIGHTARROW;
+    g_key_map[dr_key_up          ] = KEY_UPARROW;
+    g_key_map[dr_key_down        ] = KEY_DOWNARROW;
+    g_key_map[dr_key_alt         ] = KEY_LALT;
+    g_key_map[dr_key_shift       ] = KEY_RSHIFT;
+    g_key_map[dr_key_use         ] = KEY_USE;
+    g_key_map[dr_key_fire        ] = KEY_FIRE;
+    g_key_map[dr_key_tab         ] = KEY_TAB;
+    g_key_map[dr_key_yes         ] = 'y';
+    g_key_map[dr_key_no          ] = 'n';
+    g_key_map[dr_key_strafe_left ] = KEY_STRAFE_L;
+    g_key_map[dr_key_strafe_right] = KEY_STRAFE_R;
+    g_key_map[dr_key_0           ] = '0';
+    g_key_map[dr_key_1           ] = '1';
+    g_key_map[dr_key_2           ] = '2';
+    g_key_map[dr_key_3           ] = '3';
+    g_key_map[dr_key_4           ] = '4';
+    g_key_map[dr_key_5           ] = '5';
+    g_key_map[dr_key_6           ] = '6';
+    g_key_map[dr_key_7           ] = '7';
+    g_key_map[dr_key_8           ] = '8';
+    g_key_map[dr_key_9           ] = '9';
 
     g_replay_data = replay_data;
 
@@ -164,29 +168,31 @@ void DG_DrawFrame() {
             }
             if (g_replay_data.render_input) {
                 unsigned char * pressed =  g_replay_data.frames[g_frame_id].pressed;
-                if (pressed[dr_key_escape]) strcat(t, "x");
-                if (pressed[dr_key_enter])  strcat(t, "e");
-                if (pressed[dr_key_left])   strcat(t, "l");
-                if (pressed[dr_key_right])  strcat(t, "r");
-                if (pressed[dr_key_up])     strcat(t, "u");
-                if (pressed[dr_key_down])   strcat(t, "d");
-                if (pressed[dr_key_alt])    strcat(t, "a");
-                if (pressed[dr_key_shift])  strcat(t, "s");
-                if (pressed[dr_key_use])    strcat(t, "p");
-                if (pressed[dr_key_fire])   strcat(t, "f");
-                if (pressed[dr_key_tab])    strcat(t, "t");
-                if (pressed[dr_key_0])      strcat(t, "0");
-                if (pressed[dr_key_1])      strcat(t, "1");
-                if (pressed[dr_key_2])      strcat(t, "2");
-                if (pressed[dr_key_3])      strcat(t, "3");
-                if (pressed[dr_key_4])      strcat(t, "4");
-                if (pressed[dr_key_5])      strcat(t, "5");
-                if (pressed[dr_key_6])      strcat(t, "6");
-                if (pressed[dr_key_7])      strcat(t, "7");
-                if (pressed[dr_key_8])      strcat(t, "8");
-                if (pressed[dr_key_9])      strcat(t, "9");
-                if (pressed[dr_key_0])      strcat(t, "0");
-                if (pressed[dr_key_0])      strcat(t, "0");
+                if (pressed[dr_key_escape])       strcat(t, "x");
+                if (pressed[dr_key_enter])        strcat(t, "e");
+                if (pressed[dr_key_left])         strcat(t, "l");
+                if (pressed[dr_key_right])        strcat(t, "r");
+                if (pressed[dr_key_up])           strcat(t, "u");
+                if (pressed[dr_key_down])         strcat(t, "d");
+                if (pressed[dr_key_alt])          strcat(t, "a");
+                if (pressed[dr_key_shift])        strcat(t, "s");
+                if (pressed[dr_key_use])          strcat(t, "p");
+                if (pressed[dr_key_fire])         strcat(t, "f");
+                if (pressed[dr_key_tab])          strcat(t, "t");
+                if (pressed[dr_key_yes])          strcat(t, "y");
+                if (pressed[dr_key_no])           strcat(t, "n");
+                if (pressed[dr_key_strafe_left])  strcat(t, "<");
+                if (pressed[dr_key_strafe_right]) strcat(t, ">");
+                if (pressed[dr_key_0])            strcat(t, "0");
+                if (pressed[dr_key_1])            strcat(t, "1");
+                if (pressed[dr_key_2])            strcat(t, "2");
+                if (pressed[dr_key_3])            strcat(t, "3");
+                if (pressed[dr_key_4])            strcat(t, "4");
+                if (pressed[dr_key_5])            strcat(t, "5");
+                if (pressed[dr_key_6])            strcat(t, "6");
+                if (pressed[dr_key_7])            strcat(t, "7");
+                if (pressed[dr_key_8])            strcat(t, "8");
+                if (pressed[dr_key_9])            strcat(t, "9");
             }
 
             renderText(DG_ScreenBuffer, t, 1, 0, 0);

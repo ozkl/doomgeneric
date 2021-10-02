@@ -52,6 +52,18 @@ static unsigned char convertToDoomKey(unsigned int key){
     case SDLK_RSHIFT:
       key = KEY_RSHIFT;
       break;
+    case SDLK_LALT:
+      key = KEY_LALT;
+      break;
+    case SDLK_RALT:
+      key = KEY_RALT;
+      break;
+    case SDLK_COMMA:
+      key = KEY_STRAFE_L;
+      break;
+    case SDLK_PERIOD:
+      key = KEY_STRAFE_R;
+      break;
     default:
       key = tolower(key);
       break;

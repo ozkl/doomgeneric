@@ -39,6 +39,10 @@ s   - shift
 p   - use
 f   - fire
 t   - tab
+y   - yes
+n   - no
+<   - strafe left
+>   - strafe right
 0-9 - weapons
 ```
 
