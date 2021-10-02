@@ -44,6 +44,7 @@ static void renderText(uint32_t * screen, const char * text, int xoffs, int yoff
                     col = kFontRaster[(int)text[i]][y*FONT_SIZE_X + x];
                     if (col) {
                         if (ecol == 0) col = col << 8; // green
+                        if (ecol == 1) col = (((29*col)/255) << 16) | (((161*col)/255) << 8) | ((242*col)/255); // blue
                         screen[(yoffs + y)*DOOMGENERIC_RESX + (i*FONT_SIZE_X + xoffs + x)] = col;
                     }
                 }
@@ -164,7 +165,7 @@ void DG_DrawFrame() {
             char t[32];
             t[0] = 0;
             if (g_replay_data.render_frame) {
-                snprintf(t, 32, "%d", g_frame_id);
+                snprintf(t, 32, "F:%d I:", g_frame_id);
             }
             if (g_replay_data.render_input) {
                 unsigned char * pressed =  g_replay_data.frames[g_frame_id].pressed;
@@ -195,11 +196,12 @@ void DG_DrawFrame() {
                 if (pressed[dr_key_9])            strcat(t, "9");
             }
 
-            renderText(DG_ScreenBuffer, t, 1, 0, 0);
+            renderText(DG_ScreenBuffer, t, 2, 12, 0);
 
             if (g_replay_data.render_username) {
                 while (g_username_id < g_replay_data.n_usernames - 1 && g_frame_id >= g_replay_data.usernames[g_username_id + 1].frame_start) ++g_username_id;
-                renderText(DG_ScreenBuffer, g_replay_data.usernames[g_username_id].buf, 1, FONT_SIZE_Y, 0);
+                renderText(DG_ScreenBuffer, g_replay_data.usernames[g_username_id].buf,
+                           DOOMGENERIC_RESX - strlen(g_replay_data.usernames[g_username_id].buf)*FONT_SIZE_X - 2, 0, 1);
             }
 
             fwrite((char *) DG_ScreenBuffer, 4*DOOMGENERIC_RESX*DOOMGENERIC_RESY, 1, g_fp);

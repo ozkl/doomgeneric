@@ -138,7 +138,7 @@ int main(int argc, char **argv)
     int in_username = 0;
     for (int i = 0; i < fsize; ++i) {
         switch (input[i]) {
-            case '@': {
+            case '#': {
                           if (in_username == 0) {
                               in_username = 1;
                           } else {
@@ -186,7 +186,7 @@ int main(int argc, char **argv)
 
         if (in_username) {
             switch (input[i]) {
-                case '@': {
+                case '#': {
                               in_username = 0;
                           } break;
                 default: {
@@ -197,7 +197,7 @@ int main(int argc, char **argv)
             };
         } else {
             switch (input[i]) {
-                case '@': {
+                case '#': {
                               in_username = 1;
                               cur_username++;
                               replay_data.usernames[cur_username].frame_start = cur_frame;
