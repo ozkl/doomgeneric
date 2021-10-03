@@ -48,8 +48,38 @@ n   - no
 
 ## Examples
 
-```bash
-# Start a new game and complete level 1
-./doomgeneric -iwad doom1.wad -input ../input/solve1.txt -nrecord 1200 -framerate 35 -render_frame -render_input -render_username -output replay.mp4
-vlc replay.mp4
+### Complete level 1
+
+```bash  
+./doomgeneric -iwad doom1.wad -input ../input/solve1.txt -nrecord 3500 -framerate 35 -render_frame -render_input -render_username -output solve1.mp4
+vlc solve1.mp4
 ```
+
+https://user-images.githubusercontent.com/1991296/135767411-da6e3d65-afcd-400c-bd25-9c21ae0057d4.mp4
+
+### Turn 360
+
+```bash
+./doomgeneric -iwad doom1.wad -input ../input/turn.txt -nrecord 3500 -framerate 35 -render_frame -render_input -render_username -output turn.mp4
+vlc turn.mp4
+```
+
+https://user-images.githubusercontent.com/1991296/135767466-0c798f42-5aeb-4fa8-b687-3d4544013c97.mp4
+
+### Straferun SR40
+
+```bash
+./doomgeneric -iwad doom1.wad -input ../input/sr40.txt -nrecord 3500 -framerate 35 -render_frame -render_input -render_username -output sr40.mp4
+vlc sr40.mp4
+```
+
+https://user-images.githubusercontent.com/1991296/135767531-fc5fca69-3967-4f81-bd6e-8eda45e34560.mp4
+
+### Straferun SR50
+
+```bash
+./doomgeneric -iwad doom1.wad -input ../input/sr50.txt -nrecord 3500 -framerate 35 -render_frame -render_input -render_username -output sr50.mp4
+vlc sr50.mp4
+```
+
+https://user-images.githubusercontent.com/1991296/135767533-39c34be2-0677-46e3-8463-36fef38ce134.mp4
