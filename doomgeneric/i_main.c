@@ -57,6 +57,7 @@ int main(int argc, char **argv)
     int pidx_framerate = M_CheckParmWithArgs("-framerate", 1);
     int pidx_nstart    = M_CheckParmWithArgs("-nstart",    1);
     int pidx_nrecord   = M_CheckParmWithArgs("-nrecord",   1);
+    int pidx_nfreeze   = M_CheckParmWithArgs("-nfreeze",   1);
 
     if (!pidx_input) {
         fprintf(stderr, "Input file must be provided via '-input'\n");
@@ -95,6 +96,17 @@ int main(int argc, char **argv)
 
     if (replay_data.n_record <= 0) {
         fprintf(stderr, "Invalid nrecord: %d\n", replay_data.n_record);
+        return -1;
+    }
+
+    // n frames to freeze the last frame
+    replay_data.n_freeze = 0;
+    if (pidx_nfreeze) {
+        replay_data.n_freeze = atoi(myargv[pidx_nfreeze + 1]);
+    }
+
+    if (replay_data.n_freeze < 0) {
+        fprintf(stderr, "Invalid nfreeze: %d\n", replay_data.n_freeze);
         return -1;
     }
 

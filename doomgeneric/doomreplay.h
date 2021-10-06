@@ -47,6 +47,7 @@ typedef struct {
     int n_usernames;
     int n_start;
     int n_record;
+    int n_freeze;
     int framerate;
     int render_frame;
     int render_input;

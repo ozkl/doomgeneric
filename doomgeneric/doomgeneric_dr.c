@@ -219,6 +219,10 @@ void DG_DrawFrame() {
     g_frame_id++;
 
     if (g_frame_id >= g_replay_data.n_start + g_replay_data.n_record || g_frame_id >= g_replay_data.n_frames) {
+        printf("Writing %d freeze frames ..\n", g_replay_data.n_freeze);
+        for (int i = 0; i < g_replay_data.n_freeze; ++i) {
+            fwrite((char *) DG_ScreenBuffer, 4*DOOMGENERIC_RESX*DOOMGENERIC_RESY, 1, g_fp);
+        }
         if (g_fp) {
             pclose(g_fp);
             g_fp = NULL;
