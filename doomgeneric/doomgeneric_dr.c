@@ -6,6 +6,8 @@
 
 #include "i_timer.h"
 
+#include <SDL2/SDL.h>
+
 #include <time.h>
 #include <stdio.h>
 #include <unistd.h>
@@ -22,6 +24,8 @@ static unsigned int   s_KeyQueueReadIndex  = 0;
 static FILE * g_fp = NULL;
 
 static clock_t g_t_start = 0;
+static clock_t g_t_start_sim  = 0;
+static clock_t g_t_start_real = 0;
 
 static const int64_t g_dt    = 35000;
 static const int64_t g_dt_gs = (g_dt/5)/TICRATE; // ensure at least 5 updates per frame
@@ -128,6 +132,29 @@ int DR_NeedRender(int f) {
 
 void DR_UpdateTime() {
     g_time_gs += g_dt_gs;
+
+    if (DR_NeedRender(-1)) {
+        static bool isFirst = true;
+        if (isFirst) {
+            // wait for queued sounds to finish
+            SDL_Delay(3000);
+
+            g_t_start_sim = g_time_gs;
+            g_t_start_real = SDL_GetTicks();
+
+            // this is used to synchronize the sound with the video
+            printf("DOOMREPLAY SOUND START TIMESTAMP = %ld ms\n", g_t_start_real);
+
+            isFirst = false;
+        }
+
+        double dt_sim = ((double)(g_time_gs - g_t_start_sim))/g_dt;
+        double dt_real = ((double)(SDL_GetTicks() - g_t_start_real))/1000;
+        while (dt_real < dt_sim) {
+            dt_real = ((double)(SDL_GetTicks() - g_t_start_real))/1000;
+            SDL_Delay(1);
+        }
+    }
 }
 
 void DG_Init() {}
