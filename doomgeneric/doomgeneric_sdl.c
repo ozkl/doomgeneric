@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 #include <stdbool.h>
-#include <SDL.h>
+#include <SDL2/SDL.h>
 
 SDL_Window* window = NULL;
 SDL_Renderer* renderer = NULL;

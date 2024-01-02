@@ -6,3 +6,6 @@
 .vs/
 Debug/
 Release/
+build/
+wads/
+.cache/
