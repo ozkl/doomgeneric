@@ -48,6 +48,7 @@ rcsid[] = "$Id: i_x.c,v 1.6 1997/02/03 22:45:10 b1 Exp $";
 #include <sys/types.h>
 
 //#define CMAP256
+//#define ROTATE_SCREENBUFFER  // Needs testing at resolution > 320 * 200
 
 struct FB_BitField
 {
@@ -74,6 +75,7 @@ struct FB_ScreenInfo
 static struct FB_ScreenInfo s_Fb;
 int fb_scaling = 1;
 int usemouse = 0;
+static int free_videoBuffer = 0;
 
 struct color {
     uint32_t b:8;
@@ -125,6 +127,8 @@ typedef struct
 // Palette converted to RGB565
 
 static uint16_t rgb565_palette[256];
+
+byte videoBufferLineOut[DOOMGENERIC_RESX * sizeof(uint32_t)];
 
 void cmap_to_rgb565(uint16_t * out, uint8_t * in, int in_pixels)
 {
@@ -219,7 +223,11 @@ void I_InitGraphics (void)
 
 
     /* Allocate screen to draw to */
-	I_VideoBuffer = (byte*)Z_Malloc (SCREENWIDTH * SCREENHEIGHT, PU_STATIC, NULL);  // For DOOM to draw on
+    if (NULL == I_VideoBuffer)
+	{
+        I_VideoBuffer = (byte*)Z_Malloc (SCREENWIDTH * SCREENHEIGHT, PU_STATIC, NULL);  // For DOOM to draw on
+        free_videoBuffer = 1;
+	}
 
 	screenvisible = true;
 
@@ -229,7 +237,10 @@ void I_InitGraphics (void)
 
 void I_ShutdownGraphics (void)
 {
-	Z_Free (I_VideoBuffer);
+    if(free_videoBuffer)
+	{
+        Z_Free (I_VideoBuffer);
+	}
 }
 
 void I_StartFrame (void)
@@ -267,7 +278,11 @@ void I_FinishUpdate (void)
 
     /* DRAW SCREEN */
     line_in  = (unsigned char *) I_VideoBuffer;
+#ifndef ROTATE_SCREENBUFFER
     line_out = (unsigned char *) DG_ScreenBuffer;
+#else
+    line_out = (unsigned char *) &videoBufferLineOut[0];
+#endif
 
     y = SCREENHEIGHT;
 
@@ -276,6 +291,8 @@ void I_FinishUpdate (void)
         int i;
         for (i = 0; i < fb_scaling; i++) {
             line_out += x_offset;
+
+#ifndef ROTATE_SCREENBUFFER
 #ifdef CMAP256
             for (fb_scaling == 1) {
                 memcpy(line_out, line_in, SCREENWIDTH); /* fb_width is bigger than Doom SCREENWIDTH... */
@@ -285,9 +302,24 @@ void I_FinishUpdate (void)
 #else
             //cmap_to_rgb565((void*)line_out, (void*)line_in, SCREENWIDTH);
             cmap_to_fb((void*)line_out, (void*)line_in, SCREENWIDTH);
-#endif
+#endif /* CMAP256 */
+
+#else
+            cmap_to_fb((void*)videoBufferLineOut, (void*)line_in, SCREENWIDTH);
+#endif /* ROTATE_SCREENBUFFER */
             line_out += (SCREENWIDTH * fb_scaling * (s_Fb.bits_per_pixel/8)) + x_offset_end;
         }
+
+#ifdef ROTATE_SCREENBUFFER
+        for(int m = 0, n = y;
+                m < sizeof(videoBufferLineOut);
+                m+=(s_Fb.bits_per_pixel/8), n+=DOOMGENERIC_RESY)
+        {
+            uint32_t * pixelIn  = &videoBufferLineOut[m];
+            uint32_t * pixelOut = &DG_ScreenBuffer[n];
+            *pixelOut = *pixelIn;
+        }
+#endif /* ROTATE_SCREENBUFFER */
         line_in += SCREENWIDTH;
     }
 
