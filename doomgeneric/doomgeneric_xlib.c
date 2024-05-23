@@ -14,7 +14,7 @@
 #include <X11/XKBlib.h>
 
 static Display *s_Display = NULL;
-static Window s_Window = NULL;
+static Window s_Window = 0;
 static int s_Screen = 0;
 static GC s_Gc = 0;
 static XImage *s_Image = NULL;
@@ -135,14 +135,14 @@ void DG_DrawFrame()
             XNextEvent(s_Display, &e);
             if (e.type == KeyPress)
             {
-                KeySym sym = XKeycodeToKeysym(s_Display, e.xkey.keycode, 0);
+                KeySym sym = XkbKeycodeToKeysym(s_Display, e.xkey.keycode, 0, 0);
                 //printf("KeyPress:%d sym:%d\n", e.xkey.keycode, sym);
 
                 addKeyToQueue(1, sym);
             }
             else if (e.type == KeyRelease)
             {
-                KeySym sym = XKeycodeToKeysym(s_Display, e.xkey.keycode, 0);
+                KeySym sym = XkbKeycodeToKeysym(s_Display, e.xkey.keycode, 0, 0);
                 //printf("KeyRelease:%d sym:%d\n", e.xkey.keycode, sym);
                 addKeyToQueue(0, sym);
             }
@@ -196,7 +196,7 @@ void DG_SetWindowTitle(const char * title)
 {
     if (s_Window)
     {
-        XChangeProperty(s_Display, s_Window, XA_WM_NAME, XA_STRING, 8, PropModeReplace, title, strlen(title));
+      XChangeProperty(s_Display, s_Window, XA_WM_NAME, XA_STRING, 8, PropModeReplace, (const unsigned char *)title, strlen(title));
     }
 }
 
@@ -204,11 +204,10 @@ int main(int argc, char **argv)
 {
     doomgeneric_Create(argc, argv);
 
-    for (int i = 0; ; i++)
+    while(1)
     {
-        doomgeneric_Tick();
+      doomgeneric_Tick(); 
     }
-    
 
     return 0;
 }
