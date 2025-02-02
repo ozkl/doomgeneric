@@ -767,6 +767,7 @@ void P_SpawnMapThing (mapthing_t* mthing)
     // check for players specially
     if (mthing->type <= 4)
     {
+    if (mthing->type > MAXPLAYERS) return;
 	// save spots for respawning in network games
 	playerstarts[mthing->type-1] = *mthing;
 	if (!deathmatch)

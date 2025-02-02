@@ -42,7 +42,9 @@
 #define RANGECHECK
 
 // The maximum number of players, multiplayer/networking.
+#ifndef MAXPLAYERS
 #define MAXPLAYERS 4
+#endif
 
 // The current state of the game: whether we are
 // playing, gazing at the intermission screen,

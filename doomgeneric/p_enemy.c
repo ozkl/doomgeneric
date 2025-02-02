@@ -495,9 +495,9 @@ P_LookForPlayers
     fixed_t	dist;
 
     c = 0;
-    stop = (actor->lastlook-1)&3;
+    stop = (actor->lastlook-1)%MAXPLAYERS;
 	
-    for ( ; ; actor->lastlook = (actor->lastlook+1)&3 )
+    for ( ; ; actor->lastlook = (actor->lastlook+1)%MAXPLAYERS)
     {
 	if (!playeringame[actor->lastlook])
 	    continue;

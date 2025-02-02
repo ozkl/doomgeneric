@@ -1709,11 +1709,13 @@ G_DeferedInitNew
 
 void G_DoNewGame (void) 
 {
+    int i;
     demoplayback = false; 
     netdemo = false;
     netgame = false;
     deathmatch = false;
-    playeringame[1] = playeringame[2] = playeringame[3] = 0;
+	for (i = 1; i < MAXPLAYERS; i++)
+		playeringame[i] = 0;
     respawnparm = false;
     fastparm = false;
     nomonsters = false;
@@ -2247,7 +2249,8 @@ void G_TimeDemo (char* name)
  
 boolean G_CheckDemoStatus (void) 
 { 
-    int             endtime; 
+    int             endtime;
+    int             i;
 	 
     if (timingdemo) 
     { 
@@ -2273,7 +2276,8 @@ boolean G_CheckDemoStatus (void)
 	netdemo = false;
 	netgame = false;
 	deathmatch = false;
-	playeringame[1] = playeringame[2] = playeringame[3] = 0;
+    for (i = 1; i < MAXPLAYERS; i++)
+        playeringame[i] = 0;
 	respawnparm = false;
 	fastparm = false;
 	nomonsters = false;
