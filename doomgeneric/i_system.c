@@ -466,9 +466,7 @@ void I_Error (char *error, ...)
 
     exit(-1);
 #else
-    while (true)
-    {
-    }
+    exit(-1);
 #endif
 }
 
