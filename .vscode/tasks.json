@@ -1,0 +1,40 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "1. MT7628: Clean",
+            "type": "shell",
+            "command": "make -C doomgeneric -f Makefile.mt7628 clean",
+            "group": {
+                "kind": "build"
+            },
+            "problemMatcher": []
+        },
+        {
+            "label": "2. MT7628: Build",
+            "type": "shell",
+            "command": "make -C doomgeneric -f Makefile.mt7628 all",
+            "group": {
+                "kind": "build"
+            },
+            "problemMatcher": ["$gcc"]
+        },
+        {
+            "label": "3. MT7628: Rebuild (Clean + Build)",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "1. MT7628: Clean",
+                "2. MT7628: Build"
+            ],
+            "group": {
+                "kind": "build"
+            },
+            "presentation": {
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        }
+    ]
+}
