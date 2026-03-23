@@ -1,0 +1,15 @@
+{
+    "name": "MT7628 OpenWrt SDK",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.makefile-tools"
+            ]
+        }
+    },
+    "remoteUser": "root"
+}
