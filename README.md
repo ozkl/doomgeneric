@@ -1,67 +1,105 @@
-# doomgeneric
-The purpose of doomgeneric is to make porting Doom easier.
-Of course Doom is already portable but with doomgeneric it is possible with just a few functions.
+# DOOM on router (MT76x8 Family)
+Play DOOM on your Wi-Fi router! This project ports [doomgeneric](https://github.com/ozkl/doomgeneric) to routers based on the **MediaTek MT76x8** SoC family. The game runs headless on the router and streams the video to any browser via WebSockets.
+The port is tested on **[MediaTek MT7628](https://deviwiki.com/wiki/MediaTek_MT7628)** and should work on the entire **MT76x8 family**.
+Many routers are built on this platform (TP-Link, Xiaomi, Keenetic, Kroks, Cudy, Netis, Tenda and others). If you have one, you can try it!
 
-To try it you will need a WAD file (game data). If you don't own the game, shareware version is freely available (doom1.wad).
+## Requirements
+- **MT76x8** based router
+- **OpenWrt** firmware installed (stock firmware probably will **not** work) — [check compatibility](https://openwrt.org/toh/start)
 
-# porting
-Create a file named doomgeneric_yourplatform.c and just implement these functions to suit your platform.
-* DG_Init
-* DG_DrawFrame
-* DG_SleepMs
-* DG_GetTicksMs
-* DG_GetKey
+### Tested on:
 
-|Functions            |Description|
-|---------------------|-----------|
-|DG_Init              |Initialize your platfrom (create window, framebuffer, etc...).
-|DG_DrawFrame         |Frame is ready in DG_ScreenBuffer. Copy it to your platform's screen.
-|DG_SleepMs           |Sleep in milliseconds.
-|DG_GetTicksMs        |The ticks passed since launch in milliseconds.
-|DG_GetKey            |Provide keyboard events.
-|DG_SetWindowTitle    |Not required. This is for setting the window title as Doom sets this from WAD file.
+- Model: TP-Link TL-WR840N v6  
+- SoC: MediaTek [MT7628AN](https://deviwiki.com/wiki/MediaTek_MT7628)  
+- Memory: Flash - 4MB / RAM - 32MB  
+- Architecture: mipsel (little-endian)  
+- OS: [OpenWrt](https://openwrt.org/) v.21.02  
 
-### main loop
-At start, call doomgeneric_Create().
+# How it works
+The router doesn't have a display, so it runs a DOOM engine that renders frames. The finished frames are then sent via WebSocket to any device with a browser connected to the router (laptop, smartphone, etc.). Controls (key and touch presses) are sent from the connected device back to the router. This allows you to fully enjoy playing DOOM remotely.
+**Note:** In theory, you could solder a display to free pins such as GPIO or SPI and turn the router into a standalone game console.
 
-In a loop, call doomgeneric_Tick().
-
-In simplest form:
+# How to run
+0 - Prepare router. Turn it on and connect it directly to your PC or to a local network. Make sure you have access to the router via SSH(replace the ip and user with your own):
+```bash
+ssh root@x.x.x.x
 ```
-int main(int argc, char **argv)
-{
-    doomgeneric_Create(argc, argv);
+1 - [Build](docs/build.md) doomgeneric for MT7628.  
+2 - Copy doomgeneric executable to the router. Important! Check available free memory first (via command `df -h`). This can be a problem because routers often have limited storage space. In my case, there was only enough free memory in `/tmp` folder, which is cleared after every reboot.
+3 - Download and copy [WAD](docs/wad.md) file (game data) to the same folder on the router.  
+4 - On the router allow DOOM executable file to run:
+```bash
+chmod +x /tmp/doomgeneric
+```
+5 - Run it!
+<details>
+    <summary>Router logs after the launch DOOM:</summary>
 
-    while (1)
-    {
-        doomgeneric_Tick();
-    }
     
-    return 0;
-}
+    root@OpenWrt:/tmp# ./doomgeneric
+    Starting Doom (WS streaming)...
+    c25064 3 mongoose.c:4896:mg_mgr_init    MG_IO_SIZE: 16384, TLS: none
+    c25065 3 mongoose.c:4807:mg_listen      1 4 http://0.0.0.0:8000
+    DG_Init executed...
+                            Doom Generic 0.1
+    Z_Init: Init zone memory allocation daemon.
+    zone memory: 0x777e3010, 600000 allocated for zone
+    Using . for configuration and saves
+    V_Init: allocate screens.
+    M_LoadDefaults: Load system defaults.
+    saving config in .default.cfg
+    -iwad not specified, trying a few iwad names
+    Trying IWAD file:doom2.wad
+    Trying IWAD file:plutonia.wad
+    Trying IWAD file:tnt.wad
+    Trying IWAD file:doom.wad
+    Trying IWAD file:doom1.wad
+    W_Init: Init WADfiles.
+    adding doom1.wad
+    Using ./.savegame/ for savegames
+    ===========================================================================
+                                DOOM Shareware
+    ===========================================================================
+    Doom Generic is free software, covered by the GNU General Public
+    License.  There is NO warranty; not even for MERCHANTABILITY or FITNESS
+    FOR A PARTICULAR PURPOSE. You are welcome to change and distribute
+    copies under certain conditions. See the source for more information.
+    ===========================================================================
+    I_Init: Setting up machine state.
+    M_Init: Init miscellaneous info.
+    R_Init: Init DOOM refresh daemon - ...................
+    P_Init: Init Playloop state.
+    S_Init: Setting up sound.
+    D_CheckNetGame: Checking network game status.
+    startskill 2  deathmatch: 0  startmap: 1  startepisode: 1
+    player 1 of 1 (1 nodes)
+    Emulating the behavior of the 'Doom 1.9' executable.
+    HU_Init: Setting up heads up display.
+    ST_Init: Init status bar.
+    I_InitGraphics: framebuffer: x_res: 320, y_res: 200, x_virtual: 320, y_virtual: 200, bpp: 32
+    I_InitGraphics: framebuffer: RGBA: 8888, red_off: 16, green_off: 8, blue_off: 0, transp_off: 24
+    I_InitGraphics: DOOM screen size: w x h: 320 x 200
+    I_InitGraphics: Auto-scaling factor: 1
+    
+
+</details>
+
+6 - Open a browser and go to the address:
 ```
+http://x.x.x.x:8000/
+```
+Replace x.x.x.x with your router's IP address
 
-# sound
-Sound is much harder to implement! If you need sound, take a look at SDL port. It fully supports sound and music! Where to start? Define FEATURE_SOUND, assign DG_sound_module and DG_music_module.
+7 - Have fun!  
+Use WASD/arrows to move, space - fire, E - use, Q/R - strafe.
 
-# platforms
-Ported platforms include Windows, X11, SDL, emscripten. Just look at (doomgeneric_win.c, doomgeneric_xlib.c, doomgeneric_sdl.c).
-Makefiles provided for each platform.
+# Credits
+Forked from [doomgeneric](https://github.com/ozkl/doomgeneric)  
+Network library for WebSockets - [Mongoose](https://github.com/cesanta/mongoose)  
 
-## emscripten
-You can try it directly here:
-https://ozkl.github.io/doomgeneric/
-
-emscripten port is based on SDL port, so it supports sound and music! For music, timidity backend is used.
-
-## Windows
-![Windows](screenshots/windows.png)
-
-## X11 - Ubuntu
-![Ubuntu](screenshots/ubuntu.png)
-
-## X11 - FreeBSD
-![FreeBSD](screenshots/freebsd.png)
-
-## SDL
-![SDL](screenshots/sdl.png)
+## TODOs
+- Add Y/N controls
+- Create doomgeneric package for opkg
+- Add LED activity while running doom
+- Add benchmarks
+- Add github actions with doom object file as artifact
