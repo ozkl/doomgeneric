@@ -30,4 +30,4 @@ jobs:
         with:
           name: doom-mt7628-binaries
           path: |
-            doomgeneric/doomgeneric
+            doomgeneric/build/doomgeneric
