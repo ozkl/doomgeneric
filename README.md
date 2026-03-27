@@ -3,6 +3,14 @@ Play DOOM on your Wi-Fi router! This project ports [doomgeneric](https://github.
 The port is tested on **[MediaTek MT7628](https://deviwiki.com/wiki/MediaTek_MT7628)** and should work on the entire **MT76x8 family**.
 Many routers are built on this platform (TP-Link, Xiaomi, Keenetic, Kroks, Cudy, Netis, Tenda and others). If you have one, you can try it!
 
+![](./screenshots/DOOMgeneric_gameplay_PC.gif)
+
+<details>
+  <summary>iPhone gameplay</summary>
+
+  ![](./screenshots/DOOMgeneric_gameplay_iPhone.gif)
+</details>
+
 ## Requirements
 - **MT76x8** based router
 - **OpenWrt** firmware installed (stock firmware probably will **not** work) — [check compatibility](https://openwrt.org/toh/start)
