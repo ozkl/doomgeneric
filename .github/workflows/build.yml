@@ -5,7 +5,7 @@ on:
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
-  workflow_dispatch:
+  workflow_dispatch: # allows manual trigger from UI
 
 jobs:
   build:
@@ -39,3 +39,43 @@ jobs:
         with:
           name: doom-mt7628-${{ matrix.build_type }}
           path: doomgeneric/build/doomgeneric
+
+  release:
+    needs: build
+    runs-on: ubuntu-22.04
+    # Run only on master branch AND (commit message contains [release] OR manual trigger)
+    if: |
+      (github.event_name == 'push' && contains(github.event.head_commit.message, '[release]')) ||
+      (github.event_name == 'workflow_dispatch')
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./downloads
+
+      - name: Prepare files for Release
+        run: |
+          mkdir -p deploy
+          cp ./downloads/doom-mt7628-static/doomgeneric ./deploy/doomgeneric_static
+          cp ./downloads/doom-mt7628-dynamic/doomgeneric ./deploy/doomgeneric_dynamic
+
+      - name: Update Latest Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest
+          name: "Latest Build"
+          body: |
+            ## DOOM Port for MT7628
+            
+            **Build Artifacts:**
+            * `doomgeneric_static` — **Recommended**. Works on any firmware (all libraries included).
+            * `doomgeneric_dynamic` — Smallest size. Requires system libraries (musl/libc) to be present on the router.
+            
+            *Have fun!*
+          prerelease: false
+          files: |
+            deploy/doomgeneric_static
+            deploy/doomgeneric_dynamic
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
