@@ -1,3 +1,6 @@
+![Build Status](https://github.com/antonKirpich/doom-on-router/actions/workflows/build.yml/badge.svg)
+[![Latest Release](https://github.com/antonKirpich/doom-on-router?label=Latest%20Build)](https://github.com/antonKirpich/doom-on-router/releases/latest)
+
 # DOOM on router (MT76x8 Family)
 Play DOOM on your Wi-Fi router! This project ports [doomgeneric](https://github.com/ozkl/doomgeneric) to routers based on the **MediaTek MT76x8** SoC family. The game runs headless on the router and streams the video to any browser via WebSockets.
 The port is tested on **[MediaTek MT7628](https://deviwiki.com/wiki/MediaTek_MT7628)** and should work on the entire **MT76x8 family**.
