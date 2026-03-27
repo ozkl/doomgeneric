@@ -34,3 +34,12 @@ This way is recommended because it does not require installing any local depende
   make -C doomgeneric -f Makefile.mt7628 all
   ```
 - The executable file is ready: `doomgeneric/build/doomgeneric`
+
+## Precompiled executables
+If your device is built on the same platform, then you can use a ready-made executable file of the DOOM and simple copy it to the router.
+
+You can download the latest binaries (static and dynamic) from the build page:
+[**GitHub Actions Artifacts**](https://github.com/antonKirpich/doom-on-router/actions/workflows/build.yml).  
+First, try to run the file with dynamic linking; if that doesn't work, try static linking.
+
+However, proper operation is not guaranteed. If errors occur, refer to the [troubleshooting section](../README.md#troubleshooting) and try [building](#manual-build) the project yourself.

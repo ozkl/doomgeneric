@@ -33,11 +33,12 @@ The router doesn't have a display, so it runs a DOOM engine that renders frames.
 0 - Prepare router. Turn it on and connect it directly to your PC or to a local network. Make sure you have access to the router via SSH(replace the ip and user with your own):
 ```bash
 ssh root@x.x.x.x
-```
-1 - [Build](docs/build.md) doomgeneric for MT7628.  
-2 - Copy doomgeneric executable to the router. Important! Check available free memory first (via command `df -h`). This can be a problem because routers often have limited storage space. In my case, there was only enough free memory in `/tmp` folder, which is cleared after every reboot.
-3 - Download and copy [WAD](docs/wad.md) file (game data) to the same folder on the router.  
-4 - On the router allow DOOM executable file to run:
+```  
+1 - Clone this repository  
+2 - [Build](docs/build.md) DOOM executable for MT7628 or [download precompiled](docs/build.md#precompiled-executables) one  
+3 - Copy doomgeneric executable to the router. Important! Check available free memory first (via command `df -h`). This can be a problem because routers often have limited storage space. In my case, there was only enough free memory in `/tmp` folder, which is cleared after every reboot  
+4 - Download and copy [WAD](docs/wad.md) file (game data) to the same folder on the router  
+5 - On the router allow DOOM executable file to run:
 ```bash
 chmod +x /tmp/doomgeneric
 ```
@@ -106,6 +107,15 @@ Use WASD/arrows to move, space - fire, E - use, Q/R - strafe.
 # Credits
 Forked from [doomgeneric](https://github.com/ozkl/doomgeneric)  
 Network library for WebSockets - [Mongoose](https://github.com/cesanta/mongoose)  
+
+# Troubleshooting
+> Error: "File not found" or "Shared library missing (*.so)"
+  **Cause:** By default, the compiler uses dynamic linking. The program expects to find system libraries (like libgcc_s.so.1) pre-installed on the router.
+  **Solution:** Use static linking to bundle all dependencies into a single binary. Note that the executable will increase in size.
+  - Open Makefile.mt7628
+  - Change variable `STATIC_LINKING` to 1: `STATIC_LINKING ?= 1`
+  - Rebuild project
+
 
 ## TODOs
 - Add Y/N controls
