@@ -24,6 +24,12 @@ CFLAGS+=-I$(MONGOOSE_DIR)
 
 LIBS+=-lm
 
+# switch linking: dynamic(default) or static
+STATIC_LINKING ?= 0
+ifeq ($(STATIC_LINKING),1)
+	LDFLAGS += -static
+endif
+
 # subdirectory for objects
 OBJDIR=build
 OUTPUT=$(OBJDIR)/doomgeneric

@@ -1,0 +1,41 @@
+name: Build DOOM for MT7628
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        build_type: [dynamic, static]
+        include:
+          - build_type: dynamic
+            static_flag: 0
+          - build_type: static
+            static_flag: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        run: docker build -t doom-compiler -f .devcontainer/Dockerfile .
+
+      - name: Compile DOOM (${{ matrix.build_type }})
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            doom-compiler \
+            bash -c "make -C doomgeneric -f Makefile.mt7628 clean && \
+                     make -C doomgeneric -f Makefile.mt7628 all STATIC_LINKING=${{ matrix.static_flag }}"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: doom-mt7628-${{ matrix.build_type }}
+          path: doomgeneric/build/doomgeneric
