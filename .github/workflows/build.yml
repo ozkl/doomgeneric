@@ -1,0 +1,33 @@
+name: Build DOOM for MT7628
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-mt7628:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker Image
+        run: docker build -t doom-compiler .
+
+      - name: Compile DOOM
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}:/workspace \
+            doom-compiler \
+            bash -c "make -C doomgeneric -f Makefile.mt7628 clean && make -C doomgeneric -f Makefile.mt7628 all"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: doom-mt7628-binaries
+          path: |
+            doomgeneric/doomgeneric
