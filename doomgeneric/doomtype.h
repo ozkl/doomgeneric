@@ -62,20 +62,22 @@
 
 #include <inttypes.h>
 
-#ifdef __cplusplus || defined(__bool_true_false_are_defined)
+#if defined(__cplusplus) || defined(__bool_true_false_are_defined)
 
 // Use builtin bool type with C++.
 
-typedef int boolean;
+typedef unsigned char boolean;
 
 #else
 
+#ifndef __bool_true_false_are_defined 
 typedef enum 
 {
-    //false	= 0,
-    //true	= 1,
+    false	= 0,
+    true	= 1,
 	undef	= 0xFFFFFFFF
 } boolean;
+#endif
 
 #endif
 
