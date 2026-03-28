@@ -15,11 +15,13 @@ If you have one, you can try it!
   <summary>iPhone gameplay</summary>
 
   ![](./screenshots/DOOMgeneric_gameplay_iPhone.gif)
+
+  > The image is streamed from the router to the iPhone via Wi-Fi
 </details>
 
 ## Requirements
 - **MT76x8** based router
-- **OpenWrt** firmware installed (stock firmware probably will **not** work) — [check compatibility](https://openwrt.org/toh/start)
+- **OpenWrt** firmware installed (stock firmware probably will **not** work) — [check compatibility](https://toh.openwrt.org/?view=normal)
 
 ### Tested on:
 
