@@ -21,23 +21,29 @@ If you have one, you can try it!
 
 ## Requirements
 - Router based on **MIPS little-endian (mipsel)** architecture
-- **OpenWrt** firmware installed (stock firmware probably will **not** work) — [check compatibility](https://toh.openwrt.org/?view=normal)
+- **OpenWrt** firmware installed (stock firmware probably will **not** work). Check OpenWrt compatibility [here](https://toh.openwrt.org/?view=normal)
 
-To check if your model is compatible, follow the [instructions](docs/compatibility.md).
+To check if your model is compatible to this DOOM port, follow the [instructions](docs/compatibility.md).
 
 ### Tested on:
 
-#### TP-Link TL-WR840N v6  
-- SoC: MediaTek [MT7628AN](https://deviwiki.com/wiki/MediaTek_MT7628)  
-- Memory: Flash - 4MB / RAM - 32MB   
-- Architecture: MIPSel (little-endian)  
-- OS: [OpenWrt](https://openwrt.org/) v.21.02  
+<details>
+  <summary>TP-Link TL-WR840N v6</summary>
 
-#### Asus RT-N10 rev C1  
-- SoC: Ralink RT3350  
-- Memory: Flash - 4MB / RAM - 32MB  
-- Architecture: MIPSel (little-endian)  
-- OS: [OpenWrt](https://openwrt.org/) v.21.02 
+  - SoC: MediaTek [MT7628AN](https://deviwiki.com/wiki/MediaTek_MT7628)  
+  - Memory: Flash - 4MB / RAM - 32MB   
+  - Architecture: MIPSel (little-endian)  
+  - OS: [OpenWrt](https://openwrt.org/) v.21.02 
+</details>
+
+<details>
+  <summary>Asus RT-N10 rev C1</summary>
+
+  - SoC: Ralink RT3350  
+  - Memory: Flash - 4MB / RAM - 32MB  
+  - Architecture: MIPSel (little-endian)  
+  - OS: [OpenWrt](https://openwrt.org/) v.21.02 
+</details>
 
 # How it works
 The router doesn't have a display, so it runs a DOOM engine that renders frames. The finished frames are then sent via WebSocket to any device with a browser connected to the router (laptop, smartphone, etc.). Controls (key and touch presses) are sent from the connected device back to the router. This allows you to fully enjoy playing DOOM remotely.
@@ -49,7 +55,7 @@ The router doesn't have a display, so it runs a DOOM engine that renders frames.
 ssh root@x.x.x.x
 ```  
 1 - Clone this repository  
-2 - Simply download the [ready-to-run DOOM executable](docs/executables.md) if you have a compatible model; otherwise, [build](docs/build.md) it for your architecture  
+2 - Simply download the [ready-to-run DOOM executable](https://github.com/antonKirpich/doom-on-router/releases/latest) if you have a compatible model; otherwise, [build](docs/build.md) it for your architecture  
 3 - Copy doomgeneric executable to the router
   > **Important!** Check available free memory first (via command `df -h`). This can be a problem because routers often have limited storage space. In my case, there was only enough free memory in `/tmp` folder, which is cleared after every reboot  
 

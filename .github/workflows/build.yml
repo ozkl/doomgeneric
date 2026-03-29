@@ -74,6 +74,8 @@ jobs:
             * `doomgeneric_dynamic` — Smaller size  
               Requires compatible system libraries (musl/libc) on the router.
 
+            First, try to run the file with dynamic linking; if that doesn't work, try static linking.
+            However, proper operation is not guaranteed. If errors occur try [building the project manually](docs/build.md).
             ---
 
             **Compatibility:**

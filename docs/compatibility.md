@@ -14,18 +14,6 @@ uname -m
 ```
 If it shows `MIPS`, `mips` or `mipsel` give it a try!
 
-### Confirmed Working
-| Model | SoC | Status |
-|-------|--------|--------|
-| **TP-Link TL-WR840N v6** | Mediatek MT7628 | ✅ **It Runs DOOM!** |
-| **Asus RT-N10 rev C1** | Ralink RT3350 | ✅ **It Runs DOOM!** |
-Most likely, all routers based on MT76xx and RT3xxx will support this port.
-
-**Did you successfully run DOOM on a router that's not listed?** Your contribution would be greatly appreciated!  
-> If your device works, please:
-> - **Open an Issue** on GitHub with your device model and any relevant details
-> - **Or submit a Pull Request** to update this table
-
 ### Expected to work
 
 Any router with:
@@ -194,6 +182,19 @@ Since compatibility has been confirmed on SoC: MT7628 and RT3350, the following 
   <summary>RT3xxx based routers</summary>
   
 </details> -->
+
+### Confirmed Working
+| Model | SoC | Status |
+|-------|--------|--------|
+| **TP-Link TL-WR840N v6** | Mediatek MT7628 | ✅ **It Runs DOOM!** |
+| **Asus RT-N10 rev C1** | Ralink RT3350 | ✅ **It Runs DOOM!** |
+
+Most likely, all routers based on MT76xx and RT3xxx will support this port.
+
+**Did you successfully run DOOM on a router that's not listed?** Your contribution would be greatly appreciated!  
+> If your device works, please:
+> - **Open an Issue** on GitHub with your device model and any relevant details
+> - **Or submit a Pull Request** to update this table
 
 
 

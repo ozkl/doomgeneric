@@ -1,6 +1,6 @@
 # Build
 This guide explains how to build the DOOM executable for the MIPS based router.
-First try to run the [pre-built DOOM executables](./executables.md); if they do not work, follow the instructions below to build your own version.
+First try to run the [pre-built DOOM executables](https://github.com/antonKirpich/doom-on-router/releases/latest); if they do not work, follow the instructions below to build your own version.
 
 ## Automatic build for MIPS arch without local dependencies
 This way does not require installing any local dependencies other than docker, but it is tied to a specific version of the cross-compiler. Therefore, if your router has a different version of OpenWrt or other architecture you'll most likely need to [build manually](#manual-build).
