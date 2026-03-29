@@ -1,5 +1,5 @@
 {
-    "name": "MT7628 OpenWrt SDK",
+    "name": "MIPS OpenWrt SDK",
     "build": {
         "dockerfile": "Dockerfile"
     },

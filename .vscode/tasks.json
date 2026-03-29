@@ -2,29 +2,29 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "1. MT7628: Clean",
+            "label": "1. Clean",
             "type": "shell",
-            "command": "make -C doomgeneric -f Makefile.mt7628 clean",
+            "command": "make -C doomgeneric -f Makefile.mips clean",
             "group": {
                 "kind": "build"
             },
             "problemMatcher": []
         },
         {
-            "label": "2. MT7628: Build",
+            "label": "2. Build",
             "type": "shell",
-            "command": "make -C doomgeneric -f Makefile.mt7628 all",
+            "command": "make -C doomgeneric -f Makefile.mips all",
             "group": {
                 "kind": "build"
             },
             "problemMatcher": ["$gcc"]
         },
         {
-            "label": "3. MT7628: Rebuild (Clean + Build)",
+            "label": "3. Rebuild (Clean + Build)",
             "dependsOrder": "sequence",
             "dependsOn": [
-                "1. MT7628: Clean",
-                "2. MT7628: Build"
+                "1. Clean",
+                "2. Build"
             ],
             "group": {
                 "kind": "build"
