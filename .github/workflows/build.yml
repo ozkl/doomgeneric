@@ -1,4 +1,4 @@
-name: Build DOOM for MT7628
+name: Build DOOM for MIPSel
 
 on:
   push:
@@ -31,13 +31,13 @@ jobs:
           docker run --rm \
             -v ${{ github.workspace }}:/workspace \
             doom-compiler \
-            bash -c "make -C doomgeneric -f Makefile.mt7628 clean && \
-                     make -C doomgeneric -f Makefile.mt7628 all STATIC_LINKING=${{ matrix.static_flag }}"
+            bash -c "make -C doomgeneric -f Makefile.mipsel clean && \
+                     make -C doomgeneric -f Makefile.mipsel all STATIC_LINKING=${{ matrix.static_flag }}"
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: doom-mt7628-${{ matrix.build_type }}
+          name: doom-mipsel-${{ matrix.build_type }}
           path: doomgeneric/build/doomgeneric
 
   release:
@@ -57,8 +57,8 @@ jobs:
       - name: Prepare files for Release
         run: |
           mkdir -p deploy
-          cp ./downloads/doom-mt7628-static/doomgeneric ./deploy/doomgeneric_static
-          cp ./downloads/doom-mt7628-dynamic/doomgeneric ./deploy/doomgeneric_dynamic
+          cp ./downloads/doom-mipsel-static/doomgeneric ./deploy/doomgeneric_static
+          cp ./downloads/doom-mipsel-dynamic/doomgeneric ./deploy/doomgeneric_dynamic
 
       - name: Update Latest Release
         uses: softprops/action-gh-release@v1
@@ -66,13 +66,25 @@ jobs:
           tag_name: latest
           name: "Latest Build"
           body: |
-            ## DOOM Port for MT7628
+            ## DOOM Port for MIPS arch
             
-            **Build Artifacts:**
-            * `doomgeneric_static` — **Recommended**. Works on any firmware (all libraries included).
-            * `doomgeneric_dynamic` — Smallest size. Requires system libraries (musl/libc) to be present on the router.
-            
-            *Have fun!*
+            * `doomgeneric_static` — Recommended  
+              Fully static binary. Works on most devices regardless of installed libraries.
+
+            * `doomgeneric_dynamic` — Smaller size  
+              Requires compatible system libraries (musl/libc) on the router.
+
+            ---
+
+            **Compatibility:**
+
+            - ✅ Most OpenWrt routers with MIPS little-endian (mipsel)
+            - ⚠️ Very old firmware versions may not work
+            - ❌ Not compatible with ARM devices
+
+            ---
+
+            **Have fun!**
           prerelease: false
           files: |
             deploy/doomgeneric_static
