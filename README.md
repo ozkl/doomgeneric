@@ -2,10 +2,10 @@
 ![GitHub Release](https://img.shields.io/github/v/release/antonKirpich/doom-on-router)
 ![GitHub repo size](https://img.shields.io/github/repo-size/antonKirpich/doom-on-router)
 
-# DOOM on router (MT76x8 Family)
-Play DOOM on your Wi-Fi router! This project ports [doomgeneric](https://github.com/ozkl/doomgeneric) to routers based on the **MediaTek MT76x8** SoC family. The game runs headless on the router and streams the video to any browser via WebSockets.
-The port is tested on **[MediaTek MT7628](https://deviwiki.com/wiki/MediaTek_MT7628)** and should work on the entire **MT76x8 family**.
-Many routers are built on this platform (TP-Link, ASUS, Xiaomi, Mercusys and others). Check out the list of [compatible routers](docs/compatibility.md).
+# DOOM on router (MIPS architecture)
+Play DOOM on your Wi-Fi router! This project ports [doomgeneric](https://github.com/ozkl/doomgeneric) to routers based on the **MIPS (mipsel) architecture**. The game runs headless on the router and streams the video to any browser via WebSockets.
+
+Many routers are built on this architecture (MIPS is widely used in low-cost and older routers). Check out the list of [compatible routers](docs/compatibility.md).
 
 If you have one, you can try it!
 
@@ -20,16 +20,24 @@ If you have one, you can try it!
 </details>
 
 ## Requirements
-- **MT76x8** based router
+- Router based on **MIPS little-endian (mipsel)** architecture
 - **OpenWrt** firmware installed (stock firmware probably will **not** work) — [check compatibility](https://toh.openwrt.org/?view=normal)
+
+To check if your model is compatible, follow the [instructions](docs/compatibility.md).
 
 ### Tested on:
 
-- Model: TP-Link TL-WR840N v6  
+#### TP-Link TL-WR840N v6  
 - SoC: MediaTek [MT7628AN](https://deviwiki.com/wiki/MediaTek_MT7628)  
-- Memory: Flash - 4MB / RAM - 32MB  
-- Architecture: mipsel (little-endian)  
+- Memory: Flash - 4MB / RAM - 32MB   
+- Architecture: MIPSel (little-endian)  
 - OS: [OpenWrt](https://openwrt.org/) v.21.02  
+
+#### Asus RT-N10 rev C1  
+- SoC: Ralink RT3350  
+- Memory: Flash - 4MB / RAM - 32MB  
+- Architecture: MIPSel (little-endian)  
+- OS: [OpenWrt](https://openwrt.org/) v.21.02 
 
 # How it works
 The router doesn't have a display, so it runs a DOOM engine that renders frames. The finished frames are then sent via WebSocket to any device with a browser connected to the router (laptop, smartphone, etc.). Controls (key and touch presses) are sent from the connected device back to the router. This allows you to fully enjoy playing DOOM remotely.
@@ -41,8 +49,10 @@ The router doesn't have a display, so it runs a DOOM engine that renders frames.
 ssh root@x.x.x.x
 ```  
 1 - Clone this repository  
-2 - [Build](docs/build.md) DOOM executable for MT7628 or [download precompiled](docs/build.md#precompiled-executables) one  
-3 - Copy doomgeneric executable to the router. Important! Check available free memory first (via command `df -h`). This can be a problem because routers often have limited storage space. In my case, there was only enough free memory in `/tmp` folder, which is cleared after every reboot  
+2 - Simply download the [ready-to-run DOOM executable](docs/executables.md) if you have a compatible model; otherwise, [build](docs/build.md) it for your architecture  
+3 - Copy doomgeneric executable to the router
+  > **Important!** Check available free memory first (via command `df -h`). This can be a problem because routers often have limited storage space. In my case, there was only enough free memory in `/tmp` folder, which is cleared after every reboot  
+
 4 - Download and copy [WAD](docs/wad.md) file (game data) to the same folder on the router  
 5 - On the router allow DOOM executable file to run:
 ```bash
@@ -115,10 +125,10 @@ Forked from [doomgeneric](https://github.com/ozkl/doomgeneric)
 Network library for WebSockets - [Mongoose](https://github.com/cesanta/mongoose)  
 
 # Troubleshooting
-> Error: "File not found" or "Shared library missing (*.so)"
+> Errors when running the DOOM executable: "File not found" or "Shared library missing (*.so)"
   **Cause:** By default, the compiler uses dynamic linking. The program expects to find system libraries (like libgcc_s.so.1) pre-installed on the router.
   **Solution:** Use static linking to bundle all dependencies into a single binary. Note that the executable will increase in size.
-  - Open Makefile.mt7628
+  - Open Makefile.mips
   - Change variable `STATIC_LINKING` to 1: `STATIC_LINKING ?= 1`
   - Rebuild project
 
@@ -126,6 +136,5 @@ Network library for WebSockets - [Mongoose](https://github.com/cesanta/mongoose)
 ## TODOs
 - Add Y/N controls
 - Create doomgeneric package for opkg
-- Add LED activity while running doom
 - Add benchmarks
-- Add github actions with doom object file as artifact
+- Check on ARM arch
