@@ -1,4 +1,17 @@
+# doom-ssf
+
+This repository is a **doomgeneric**-based Doom source tree ([doomgeneric](https://github.com/ozkl/doomgeneric) makes porting Doom easier by isolating platform code behind a small API). Build instructions and upstream notes below apply to the `doomgeneric/` sources.
+
+The goal of this fork is to embed DOOM as library-backed engine.
+
+Only targeted upstream changes will be sync'd.
+
+Fork-specific documents are located in `docs/`
+
+---
+
 # doomgeneric
+
 The purpose of doomgeneric is to make porting Doom easier.
 Of course Doom is already portable but with doomgeneric it is possible with just a few functions.
 

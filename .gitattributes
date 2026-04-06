@@ -1,0 +1,19 @@
+# Normalize line endings on checkout; let Git decide text vs binary.
+* text=auto
+
+# Source and docs
+*.{c,h} text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+Makefile text eol=lf
+Makefile.* text eol=lf
+
+# Windows / Visual Studio project files (common CRLF convention)
+*.sln text eol=crlf
+*.vcxproj text eol=crlf
+*.vcxproj.filters text eol=crlf
+
+# Binary assets
+*.{png,jpg,jpeg,gif,webp,ico,bmp} binary
+*.wasm binary
+*.wad binary

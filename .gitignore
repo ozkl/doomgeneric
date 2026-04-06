@@ -1,13 +1,58 @@
 *.o
 *.obj
 *.exe
+*.a
+*.lib
+*.dll
+*.dylib
+*.so
 *.DS_Store
 *.log
 *.user
 *~
+*.swp
+*.swo
+
+# IDEs and OS
 .vs/
+.vscode/
+.idea/
+*.code-workspace
+
+# Visual Studio / MSVC
+*.ncb
+*.opensdf
+*.sdf
+*.suo
+*.VC.db
+*.VC.VC.opendb
+*.ilk
+*.pdb
+ipch/
+x64/
+x86/
+Win32/
+
+# Build outputs (Makefiles use OBJDIR=build; Windows may use Build/)
+build/
+Build/
 Debug/
 Release/
-Build/
-doomgeneric
-doomgeneric.map
+
+# Linked binaries and maps (only the built artifacts, not the doomgeneric/ source tree)
+doomgeneric/doomgeneric
+doomgeneric/doomgeneric.exe
+doomgeneric/doomgeneric.map
+*.gdb
+
+# Emscripten (see doomgeneric/Makefile.emscripten)
+doomgeneric.html
+doomgeneric.js
+doomgeneric.data
+doomgeneric.wasm
+
+# Game data (IWADs/PWADs are large; keep local)
+*.wad
+
+# macOS debug symbols
+*.dSYM/
