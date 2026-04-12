@@ -64,9 +64,8 @@
 
 #if defined(__cplusplus) || defined(__bool_true_false_are_defined)
 
-// Use builtin bool type with C++.
-
-typedef unsigned char boolean;
+//boolean is cast to int* in doom. so to keep size the same, make boolean an int.
+typedef unsigned int boolean;
 
 #else
 
