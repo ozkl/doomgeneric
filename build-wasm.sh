@@ -1,8 +1,8 @@
 #!/bin/bash
 # Compile doomgeneric to WebAssembly using emcc (STANDALONE_WASM mode)
-# Run this from the doomgeneric/ directory in MINGW64 shell
 
 set -e
+cd "$(dirname "$0")/doomgeneric"
 
 OBJDIR=build_wasm
 OUTPUT=doom
@@ -23,7 +23,6 @@ r_segs.c r_sky.c r_things.c sha1.c sounds.c statdump.c st_lib.c st_stuff.c
 s_sound.c tables.c v_video.c wi_stuff.c w_checksum.c w_file.c w_main.c
 w_wad.c z_zone.c w_file_stdc.c i_input.c i_video.c doomgeneric.c
 doomgeneric_wah.c
-host_io_globals.c
 "
 
 # Exported functions

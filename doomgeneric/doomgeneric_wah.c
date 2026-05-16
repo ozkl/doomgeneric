@@ -119,3 +119,11 @@ void doom_tick(void)
 {
     doomgeneric_Tick();
 }
+
+
+// ---- Stubs for unused libc functions ----
+
+int host_feof_stub(FILE *f) {
+    (void)f;
+    return 0;  // stub — not used in active doom code paths
+}

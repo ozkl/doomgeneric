@@ -1,67 +1,79 @@
-# doomgeneric
-The purpose of doomgeneric is to make porting Doom easier.
-Of course Doom is already portable but with doomgeneric it is possible with just a few functions.
+# DoomWAH
 
-To try it you will need a WAD file (game data). If you don't own the game, shareware version is freely available (doom1.wad).
+DOOM running as a standalone WebAssembly module, interpreted by a custom WASM runtime on Windows.
 
-# porting
-Create a file named doomgeneric_yourplatform.c and just implement these functions to suit your platform.
-* DG_Init
-* DG_DrawFrame
-* DG_SleepMs
-* DG_GetTicksMs
-* DG_GetKey
+The WASM guest has **zero runtime dependencies** — no WASI, no Emscripten JS glue, no libc internals.
+All I/O (file, console, display) goes through 16 clean `host_*` imports.
 
-|Functions            |Description|
-|---------------------|-----------|
-|DG_Init              |Initialize your platfrom (create window, framebuffer, etc...).
-|DG_DrawFrame         |Frame is ready in DG_ScreenBuffer. Copy it to your platform's screen.
-|DG_SleepMs           |Sleep in milliseconds.
-|DG_GetTicksMs        |The ticks passed since launch in milliseconds.
-|DG_GetKey            |Provide keyboard events.
-|DG_SetWindowTitle    |Not required. This is for setting the window title as Doom sets this from WAD file.
+Based on [doomgeneric](https://github.com/ozkl/doomgeneric) by ozkl.
 
-### main loop
-At start, call doomgeneric_Create().
+## Dependencies
 
-In a loop, call doomgeneric_Tick().
+| Component | Tool | Notes |
+|-----------|------|-------|
+| WASM guest | [Emscripten](https://emscripten.org/) (`emcc`) | Compiles C to standalone WASM |
+| Host runtime | GCC (MINGW64) | Compiles the Win32 host |
+| WASM interpreter | [WAH](host/wah.h) | Single-header WebAssembly interpreter |
+| Game data | `doom1.wad` | Shareware WAD (not included) |
 
-In simplest form:
-```
-int main(int argc, char **argv)
-{
-    doomgeneric_Create(argc, argv);
+## Building
 
-    while (1)
-    {
-        doomgeneric_Tick();
-    }
-    
-    return 0;
-}
+All scripts run in **MINGW64 shell** (Git Bash) from the project root.
+
+```bash
+# 1. Build the WASM module (requires emcc in PATH)
+bash build-wasm.sh
+
+# 2. Build the host executable
+bash build-host.sh
 ```
 
-# sound
-Sound is much harder to implement! If you need sound, take a look at SDL port. It fully supports sound and music! Where to start? Define FEATURE_SOUND, assign DG_sound_module and DG_music_module.
+## Running
 
-# platforms
-Ported platforms include Windows, X11, SDL, emscripten. Just look at (doomgeneric_win.c, doomgeneric_xlib.c, doomgeneric_sdl.c).
-Makefiles provided for each platform.
+Place `doom1.wad` in the project root, then:
 
-## emscripten
-You can try it directly here:
-https://ozkl.github.io/doomgeneric/
+```bash
+bash run.sh
+```
 
-emscripten port is based on SDL port, so it supports sound and music! For music, timidity backend is used.
+Or directly:
 
-## Windows
-![Windows](screenshots/windows.png)
+```bash
+./doomwah.exe doomgeneric/doom.wasm
+```
 
-## X11 - Ubuntu
-![Ubuntu](screenshots/ubuntu.png)
+## Architecture
 
-## X11 - FreeBSD
-![FreeBSD](screenshots/freebsd.png)
+```
+┌─────────────────────────┐     ┌──────────────────────────┐
+│      WASM Guest         │     │      Win32 Host           │
+│  (doomgeneric + doom)   │     │   (host/main.c + wah.h)  │
+│                         │     │                          │
+│  fopen ──→ host_fopen ──┼────►│  fd_alloc + real fopen   │
+│  printf ──→ host_puts ──┼────►│  fwrite(stdout)          │
+│  DG_DrawFrame ──────────┼────►│  StretchDIBits (GDI)     │
+│  exit ──→ host_exit ────┼────►│  exit()                  │
+└─────────────────────────┘     └──────────────────────────┘
+```
 
-## SDL
-![SDL](screenshots/sdl.png)
+**Key trick**: In WASM, `FILE*` and `int` are both `i32`.
+The host returns an fd from `host_fopen`, and the guest treats it as `FILE*`.
+No conversion needed — the same `i32` flows back through `fread`/`fwrite`/`fclose`.
+
+## Project Structure
+
+```
+doomwah/
+├── build-wasm.sh          # Build WASM module
+├── build-host.sh          # Build Win32 host
+├── run.sh                 # Run DOOM
+├── host/
+│   ├── main.c             # Win32 host: window, input, file I/O
+│   └── wah.h              # WAH WASM interpreter (single header)
+├── doomgeneric/
+│   ├── host_io.h          # I/O redirect macros (force-included)
+│   ├── doomgeneric_wah.c  # WAH platform layer
+│   ├── doom.wasm          # Built WASM module (output)
+│   └── *.c / *.h          # Original doomgeneric sources (unmodified)
+└── AGENTS.md              # AI coding rules
+```
