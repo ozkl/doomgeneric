@@ -23,10 +23,11 @@ r_segs.c r_sky.c r_things.c sha1.c sounds.c statdump.c st_lib.c st_stuff.c
 s_sound.c tables.c v_video.c wi_stuff.c w_checksum.c w_file.c w_main.c
 w_wad.c z_zone.c w_file_stdc.c i_input.c i_video.c doomgeneric.c
 doomgeneric_wah.c
+host_io_globals.c
 "
 
 # Exported functions
-EXPORTS='["_doom_init","_doom_tick","_DG_ScreenBuffer","_malloc","_free"]'
+EXPORTS='["_doom_init","_doom_tick","_DG_ScreenBuffer"]'
 
 echo "=== Compiling doomgeneric to WASM ==="
 
