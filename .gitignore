@@ -12,3 +12,4 @@ Release/
 Build/
 doomgeneric.map
 doom1.wad
+*.dsg
