@@ -4,10 +4,11 @@
 *.DS_Store
 *.log
 *.user
+*.wasm
 *~
 .vs/
 Debug/
 Release/
 Build/
-doomgeneric
 doomgeneric.map
+doom1.wad
