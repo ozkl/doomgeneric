@@ -1,47 +1,71 @@
 // doomgeneric WAH (WebAssembly) platform layer
-// This file is compiled to WASM and runs inside the WAH interpreter.
-// All platform functions call extern host functions imported from the host.
+// Compiled to WASM, runs inside the WAH interpreter.
+// All platform + I/O goes through host_* imports in the "env" module.
 
-#include "doomkeys.h"
-#include "doomgeneric.h"
+// Include headers BEFORE host_io.h to avoid macro conflicts.
+// host_io.h redefines printf/fprintf/exit, so we must define
+// our wrapper implementations before including it.
 
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdarg.h>
 
-// ---- Host functions (WASM imports from "env" module) ----
+#include "doomkeys.h"
+#include "doomgeneric.h"
 
-// Called once during DG_Init
+// ---- Host imports (declared directly, NOT via host_io.h) ----
+
+extern void host_puts(const char *str, int len);
+extern __attribute__((noreturn)) void host_exit(int code);
+
 extern void host_init(void);
-
-// Called every frame: host reads WASM memory at buffer_ptr to blit pixels
 extern void host_draw_frame(uint32_t buffer_ptr, uint32_t width, uint32_t height);
-
-// Sleep for ms milliseconds
 extern void host_sleep_ms(uint32_t ms);
-
-// Returns current time in milliseconds
 extern uint32_t host_get_ticks_ms(void);
-
-// Returns 0 if no key, or (pressed << 8 | doomkey)
 extern int32_t host_get_key(void);
-
-// Set window title: host reads string from WASM memory at title_ptr
 extern void host_set_window_title(uint32_t title_ptr, uint32_t len);
 
-// Host file I/O: opens a real file on the host side
-extern int host_open(uint32_t path_ptr, int flags, int mode);
 
-// Override emcc/musl's __syscall_openat so fopen() works via the host.
-// Our .o definition takes precedence over musl's libc.a version.
-// Returns fd on success, negative errno on failure.
-long __syscall_openat(int dirfd, long path, int flags, int mode) {
-    (void)dirfd;
-    return host_open((uint32_t)path, flags, mode);
+// ---- Console wrappers (called by doom code via macros in host_io.h) ----
+
+int host_printf(const char *fmt, ...)
+{
+    char buf[1024];
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    if (len > 0)
+        host_puts(buf, len);
+    return len;
+}
+
+int host_fprintf(FILE *stream, const char *fmt, ...)
+{
+    (void)stream;
+    char buf[1024];
+    va_list args;
+    va_start(args, fmt);
+    int len = vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    if (len > 0)
+        host_puts(buf, len);
+    return len;
+}
+
+int host_vfprintf(FILE *stream, const char *fmt, va_list args)
+{
+    (void)stream;
+    char buf[1024];
+    int len = vsnprintf(buf, sizeof(buf), fmt, args);
+    if (len > 0)
+        host_puts(buf, len);
+    return len;
 }
 
 
-// ---- DG_* platform interface implementation ----
+// ---- DG_* platform interface ----
 
 void DG_Init()
 {

@@ -35,6 +35,27 @@ static unsigned short g_key_queue[KEYQUEUE_SIZE];
 static unsigned int g_key_write = 0;
 static unsigned int g_key_read = 0;
 
+// File descriptor table
+#define MAX_FDS 32
+static FILE *g_fd_table[MAX_FDS];
+
+static void fd_table_init(void) {
+    memset(g_fd_table, 0, sizeof(g_fd_table));
+    g_fd_table[0] = stdin;
+    g_fd_table[1] = stdout;
+    g_fd_table[2] = stderr;
+}
+
+static int fd_alloc(FILE *f) {
+    for (int i = 3; i < MAX_FDS; i++) {
+        if (!g_fd_table[i]) {
+            g_fd_table[i] = f;
+            return i;
+        }
+    }
+    return -1;
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -58,16 +79,11 @@ static uint8_t *wasm_mem(void) {
     return g_ctx.memory_base;
 }
 
-static uint64_t wasm_mem_size(void) {
-    return g_ctx.memory_size;
-}
-
 // ============================================================================
 // Win32 Window
 // ============================================================================
 
 static unsigned char convertToDoomKey(unsigned char key) {
-    // doomkeys.h values
     switch (key) {
     case VK_RETURN:  return 13;   // KEY_ENTER
     case VK_ESCAPE:  return 27;   // KEY_ESCAPE
@@ -119,7 +135,7 @@ static void createWindow(void) {
 }
 
 // ============================================================================
-// Host functions: DG platform (imported by WASM as "env" module)
+// Host functions: DG platform
 // ============================================================================
 
 static void hf_host_init(wah_call_context_t *ctx, void *ud) {
@@ -131,8 +147,6 @@ static void hf_host_init(wah_call_context_t *ctx, void *ud) {
 static void hf_host_draw_frame(wah_call_context_t *ctx, void *ud) {
     (void)ud;
     uint32_t buf_ptr = wah_param_i32(ctx, 0);
-    // uint32_t width = wah_param_i32(ctx, 1);
-    // uint32_t height = wah_param_i32(ctx, 2);
 
     // Process Windows messages
     MSG msg;
@@ -163,7 +177,7 @@ static void hf_host_get_ticks_ms(wah_call_context_t *ctx, void *ud) {
 static void hf_host_get_key(wah_call_context_t *ctx, void *ud) {
     (void)ud;
     if (g_key_read == g_key_write) {
-        wah_return_i32(ctx, 0);  // No key
+        wah_return_i32(ctx, 0);
     } else {
         unsigned short keyData = g_key_queue[g_key_read];
         g_key_read = (g_key_read + 1) % KEYQUEUE_SIZE;
@@ -183,183 +197,140 @@ static void hf_host_set_window_title(wah_call_context_t *ctx, void *ud) {
 }
 
 // ============================================================================
-// WASI functions (imported by WASM as "wasi_snapshot_preview1" module)
+// Host functions: File I/O
 // ============================================================================
 
-// Simple file descriptor table for WASI
-#define MAX_FDS 32
-static FILE *g_fd_table[MAX_FDS];
-static int g_fd_count = 3; // 0=stdin, 1=stdout, 2=stderr
-
-static void wasi_init_fds(void) {
-    g_fd_table[0] = stdin;
-    g_fd_table[1] = stdout;
-    g_fd_table[2] = stderr;
-}
-
-static int wasi_alloc_fd(FILE *f) {
-    for (int i = 3; i < MAX_FDS; i++) {
-        if (!g_fd_table[i]) {
-            g_fd_table[i] = f;
-            return i;
-        }
-    }
-    return -1;
-}
-
-// proc_exit(code: i32) -> void
-static void hf_proc_exit(wah_call_context_t *ctx, void *ud) {
+// host_fopen(path_ptr, mode_ptr) -> fd or -1
+static void hf_host_fopen(wah_call_context_t *ctx, void *ud) {
     (void)ud;
-    int32_t code = wah_param_i32(ctx, 0);
-    printf("[wasi] proc_exit(%d)\n", code);
-    exit(code);
-}
-
-// fd_write(fd, iovs_ptr, iovs_len, nwritten_ptr) -> errno
-static void hf_fd_write(wah_call_context_t *ctx, void *ud) {
-    (void)ud;
-    int32_t fd = wah_param_i32(ctx, 0);
-    uint32_t iovs_ptr = wah_param_i32(ctx, 1);
-    uint32_t iovs_len = wah_param_i32(ctx, 2);
-    uint32_t nwritten_ptr = wah_param_i32(ctx, 3);
+    uint32_t path_ptr = wah_param_i32(ctx, 0);
+    uint32_t mode_ptr = wah_param_i32(ctx, 1);
 
     uint8_t *mem = wasm_mem();
-    size_t total = 0;
+    const char *path = (const char *)(mem + path_ptr);
+    const char *mode = (const char *)(mem + mode_ptr);
+    printf("[host] fopen(\"%s\", \"%s\")\n", path, mode);
 
-    FILE *f = (fd >= 0 && fd < MAX_FDS) ? g_fd_table[fd] : NULL;
-    if (!f) { wah_return_i32(ctx, 8); return; } // EBADF
-
-    for (uint32_t i = 0; i < iovs_len; i++) {
-        uint32_t buf_addr = *(uint32_t *)(mem + iovs_ptr + i * 8);
-        uint32_t buf_len  = *(uint32_t *)(mem + iovs_ptr + i * 8 + 4);
-        size_t written = fwrite(mem + buf_addr, 1, buf_len, f);
-        total += written;
-    }
-    fflush(f);
-
-    *(uint32_t *)(mem + nwritten_ptr) = (uint32_t)total;
-    wah_return_i32(ctx, 0); // success
-}
-
-// fd_read(fd, iovs_ptr, iovs_len, nread_ptr) -> errno
-static void hf_fd_read(wah_call_context_t *ctx, void *ud) {
-    (void)ud;
-    int32_t fd = wah_param_i32(ctx, 0);
-    uint32_t iovs_ptr = wah_param_i32(ctx, 1);
-    uint32_t iovs_len = wah_param_i32(ctx, 2);
-    uint32_t nread_ptr = wah_param_i32(ctx, 3);
-
-    uint8_t *mem = wasm_mem();
-    size_t total = 0;
-
-    FILE *f = (fd >= 0 && fd < MAX_FDS) ? g_fd_table[fd] : NULL;
-    if (!f) { wah_return_i32(ctx, 8); return; } // EBADF
-
-    for (uint32_t i = 0; i < iovs_len; i++) {
-        uint32_t buf_addr = *(uint32_t *)(mem + iovs_ptr + i * 8);
-        uint32_t buf_len  = *(uint32_t *)(mem + iovs_ptr + i * 8 + 4);
-        size_t rd = fread(mem + buf_addr, 1, buf_len, f);
-        total += rd;
-        if (rd < buf_len) break; // EOF or error
+    FILE *f = fopen(path, mode);
+    if (!f) {
+        wah_return_i32(ctx, -1);
+        return;
     }
 
-    *(uint32_t *)(mem + nread_ptr) = (uint32_t)total;
-    wah_return_i32(ctx, 0); // success
+    int fd = fd_alloc(f);
+    if (fd < 0) {
+        fclose(f);
+        wah_return_i32(ctx, -1);
+        return;
+    }
+
+    printf("[host] fopen: fd=%d\n", fd);
+    wah_return_i32(ctx, fd);
 }
 
-// fd_close(fd) -> errno
-static void hf_fd_close(wah_call_context_t *ctx, void *ud) {
+// host_fclose(fd) -> 0 on success
+static void hf_host_fclose(wah_call_context_t *ctx, void *ud) {
     (void)ud;
     int32_t fd = wah_param_i32(ctx, 0);
-
     if (fd < 3 || fd >= MAX_FDS || !g_fd_table[fd]) {
-        wah_return_i32(ctx, 8); return; // EBADF
+        wah_return_i32(ctx, -1);
+        return;
     }
     fclose(g_fd_table[fd]);
     g_fd_table[fd] = NULL;
     wah_return_i32(ctx, 0);
 }
 
-// fd_seek(fd, offset_i64, whence, newoffset_ptr) -> errno
-static void hf_fd_seek(wah_call_context_t *ctx, void *ud) {
+// host_fread(fd, buf_ptr, size) -> bytes_read
+static void hf_host_fread(wah_call_context_t *ctx, void *ud) {
     (void)ud;
     int32_t fd = wah_param_i32(ctx, 0);
-    int64_t offset = wah_param_i64(ctx, 1);
-    int32_t whence = wah_param_i32(ctx, 2);
-    uint32_t newoff_ptr = wah_param_i32(ctx, 3);
+    uint32_t buf_ptr = wah_param_i32(ctx, 1);
+    int32_t size = wah_param_i32(ctx, 2);
 
     FILE *f = (fd >= 0 && fd < MAX_FDS) ? g_fd_table[fd] : NULL;
-    if (!f) { wah_return_i32(ctx, 8); return; } // EBADF
+    if (!f) { wah_return_i32(ctx, -1); return; }
+
+    uint8_t *dest = wasm_mem() + buf_ptr;
+    size_t rd = fread(dest, 1, size, f);
+    wah_return_i32(ctx, (int32_t)rd);
+}
+
+// host_fwrite(fd, buf_ptr, size) -> bytes_written
+static void hf_host_fwrite(wah_call_context_t *ctx, void *ud) {
+    (void)ud;
+    int32_t fd = wah_param_i32(ctx, 0);
+    uint32_t buf_ptr = wah_param_i32(ctx, 1);
+    int32_t size = wah_param_i32(ctx, 2);
+
+    FILE *f = (fd >= 0 && fd < MAX_FDS) ? g_fd_table[fd] : NULL;
+    if (!f) { wah_return_i32(ctx, -1); return; }
+
+    uint8_t *src = wasm_mem() + buf_ptr;
+    size_t wr = fwrite(src, 1, size, f);
+    fflush(f);
+    wah_return_i32(ctx, (int32_t)wr);
+}
+
+// host_fseek(fd, offset, whence) -> 0 on success
+static void hf_host_fseek(wah_call_context_t *ctx, void *ud) {
+    (void)ud;
+    int32_t fd = wah_param_i32(ctx, 0);
+    int32_t offset = wah_param_i32(ctx, 1);
+    int32_t whence = wah_param_i32(ctx, 2);
+
+    FILE *f = (fd >= 0 && fd < MAX_FDS) ? g_fd_table[fd] : NULL;
+    if (!f) { wah_return_i32(ctx, -1); return; }
 
     int c_whence = SEEK_SET;
     if (whence == 1) c_whence = SEEK_CUR;
     else if (whence == 2) c_whence = SEEK_END;
 
-    fseek(f, (long)offset, c_whence);
-    int64_t pos = (int64_t)ftell(f);
+    int result = fseek(f, (long)offset, c_whence);
+    wah_return_i32(ctx, result);
+}
 
-    uint8_t *mem = wasm_mem();
-    *(int64_t *)(mem + newoff_ptr) = pos;
-    wah_return_i32(ctx, 0);
+// host_ftell(fd) -> position
+static void hf_host_ftell(wah_call_context_t *ctx, void *ud) {
+    (void)ud;
+    int32_t fd = wah_param_i32(ctx, 0);
+
+    FILE *f = (fd >= 0 && fd < MAX_FDS) ? g_fd_table[fd] : NULL;
+    if (!f) { wah_return_i32(ctx, -1); return; }
+
+    wah_return_i32(ctx, (int32_t)ftell(f));
 }
 
 // ============================================================================
-// Emscripten syscall stubs (imported by WASM as "env" module)
+// Host functions: Console output + process control
 // ============================================================================
 
-// host_open(path_ptr, flags, mode) -> fd or negative errno
-// Called from WASM's __syscall_openat override
-static void hf_host_open(wah_call_context_t *ctx, void *ud) {
+// host_puts(str_ptr, len) -> void
+static void hf_host_puts(wah_call_context_t *ctx, void *ud) {
     (void)ud;
-    uint32_t path_ptr = wah_param_i32(ctx, 0);
-    int32_t flags = wah_param_i32(ctx, 1);
-    // int32_t mode = wah_param_i32(ctx, 2);
+    uint32_t str_ptr = wah_param_i32(ctx, 0);
+    int32_t len = wah_param_i32(ctx, 1);
 
-    uint8_t *mem = wasm_mem();
-    const char *path = (const char *)(mem + path_ptr);
-    printf("[host] open(\"%s\", flags=0x%x)\n", path, flags);
-
-    // Determine fopen mode from flags
-    const char *fmode;
-    if (flags & 0x40) { // O_CREAT
-        if (flags & 0x400) fmode = "wb"; // O_TRUNC
-        else fmode = "r+b";
-    } else if (flags & 0x02) { // O_RDWR
-        fmode = "r+b";
-    } else if (flags & 0x01) { // O_WRONLY
-        fmode = "wb";
-    } else {
-        fmode = "rb"; // O_RDONLY
-    }
-
-    FILE *f = fopen(path, fmode);
-    if (!f) {
-        printf("[host] open: failed for \"%s\"\n", path);
-        wah_return_i32(ctx, -2); // -ENOENT
-        return;
-    }
-
-    int fd = wasi_alloc_fd(f);
-    if (fd < 0) {
-        fclose(f);
-        wah_return_i32(ctx, -24); // -EMFILE
-        return;
-    }
-
-    printf("[host] open: fd=%d for \"%s\"\n", fd, path);
-    wah_return_i32(ctx, fd);
+    const char *str = (const char *)(wasm_mem() + str_ptr);
+    fwrite(str, 1, len, stdout);
+    fflush(stdout);
 }
 
-// __syscall_unlinkat, __syscall_rmdir, __syscall_renameat — stubs
-static void hf_syscall_stub(wah_call_context_t *ctx, void *ud) {
+// host_exit(code) -> noreturn
+static void hf_host_exit(wah_call_context_t *ctx, void *ud) {
     (void)ud;
-    printf("[host] syscall stub called (returning -1)\n");
-    wah_return_i32(ctx, -1);
+    int32_t code = wah_param_i32(ctx, 0);
+    printf("[host] exit(%d)\n", code);
+    exit(code);
 }
 
-// _emscripten_system — stub for system()
-static void hf_emscripten_system(wah_call_context_t *ctx, void *ud) {
+// ============================================================================
+// Stubs for musl libc internal imports (not used by our doom code)
+// ============================================================================
+
+static void hf_stub_i32(wah_call_context_t *ctx, void *ud) {
     (void)ud;
+    (void)ctx;
     wah_return_i32(ctx, -1);
 }
 
@@ -371,7 +342,7 @@ int main(int argc, char *argv[]) {
     const char *wasm_path = "doomgeneric/doom.wasm";
     if (argc > 1) wasm_path = argv[1];
 
-    wasi_init_fds();
+    fd_table_init();
 
     // 1. Load WASM binary
     size_t wasm_size;
@@ -393,50 +364,58 @@ int main(int argc, char *argv[]) {
     free(wasm_buf);
     printf("Module parsed OK\n");
 
-    // 3. Create "env" host module
+    // 3. Create "env" host module — ALL host functions go here
     wah_module_t env_mod = {0};
     if ((err = wah_new_module(&env_mod, NULL))) goto fail;
 
     // DG platform functions
-    if ((err = wah_export_func(&env_mod, "host_init",             "()",                     hf_host_init,        NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&env_mod, "host_draw_frame",       "(i32, i32, i32)",        hf_host_draw_frame,  NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&env_mod, "host_sleep_ms",         "(i32)",                  hf_host_sleep_ms,    NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&env_mod, "host_get_ticks_ms",     "() -> i32",              hf_host_get_ticks_ms,NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&env_mod, "host_get_key",          "() -> i32",              hf_host_get_key,     NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&env_mod, "host_set_window_title", "(i32, i32)",             hf_host_set_window_title, NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_init",             "()",                 hf_host_init,        NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_draw_frame",       "(i32, i32, i32)",    hf_host_draw_frame,  NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_sleep_ms",         "(i32)",              hf_host_sleep_ms,    NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_get_ticks_ms",     "() -> i32",          hf_host_get_ticks_ms,NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_get_key",          "() -> i32",          hf_host_get_key,     NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_set_window_title", "(i32, i32)",         hf_host_set_window_title, NULL, NULL))) goto fail;
 
-    // Host file I/O
-    if ((err = wah_export_func(&env_mod, "host_open",              "(i32, i32, i32) -> i32",       hf_host_open,        NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&env_mod, "__syscall_unlinkat",    "(i32, i32, i32) -> i32",      hf_syscall_stub,     NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&env_mod, "__syscall_rmdir",       "(i32) -> i32",                hf_syscall_stub,     NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&env_mod, "__syscall_renameat",    "(i32, i32, i32, i32) -> i32", hf_syscall_stub,     NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&env_mod, "_emscripten_system",    "(i32) -> i32",                hf_emscripten_system,NULL, NULL))) goto fail;
+    // File I/O
+    if ((err = wah_export_func(&env_mod, "host_fopen",            "(i32, i32) -> i32",        hf_host_fopen,  NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_fclose",           "(i32) -> i32",             hf_host_fclose, NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_fread",            "(i32, i32, i32) -> i32",   hf_host_fread,  NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_fwrite",           "(i32, i32, i32) -> i32",   hf_host_fwrite, NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_fseek",            "(i32, i32, i32) -> i32",   hf_host_fseek,  NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_ftell",            "(i32) -> i32",             hf_host_ftell,  NULL, NULL))) goto fail;
 
-    // 4. Create "wasi_snapshot_preview1" module
+    // Console + process
+    if ((err = wah_export_func(&env_mod, "host_puts",             "(i32, i32)",               hf_host_puts,   NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "host_exit",             "(i32)",                    hf_host_exit,   NULL, NULL))) goto fail;
+
+    // Emscripten syscall stubs (musl libc internals still import these)
+    if ((err = wah_export_func(&env_mod, "__syscall_unlinkat",    "(i32, i32, i32) -> i32",   hf_stub_i32,    NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "__syscall_rmdir",       "(i32) -> i32",             hf_stub_i32,    NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "__syscall_renameat",    "(i32, i32, i32, i32) -> i32", hf_stub_i32, NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&env_mod, "_emscripten_system",    "(i32) -> i32",             hf_stub_i32,    NULL, NULL))) goto fail;
+
+    // 4. Create "wasi_snapshot_preview1" module (musl libc still uses these internally)
     wah_module_t wasi_mod = {0};
     if ((err = wah_new_module(&wasi_mod, NULL))) goto fail;
+    if ((err = wah_export_func(&wasi_mod, "fd_close", "(i32) -> i32",                hf_stub_i32, NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&wasi_mod, "fd_write", "(i32, i32, i32, i32) -> i32", hf_stub_i32, NULL, NULL))) goto fail;
+    if ((err = wah_export_func(&wasi_mod, "fd_seek",  "(i32, i64, i32, i32) -> i32", hf_stub_i32, NULL, NULL))) goto fail;
 
-    if ((err = wah_export_func(&wasi_mod, "proc_exit",  "(i32)",                      hf_proc_exit,  NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&wasi_mod, "fd_write",   "(i32, i32, i32, i32) -> i32", hf_fd_write,   NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&wasi_mod, "fd_read",    "(i32, i32, i32, i32) -> i32", hf_fd_read,    NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&wasi_mod, "fd_close",   "(i32) -> i32",                hf_fd_close,   NULL, NULL))) goto fail;
-    if ((err = wah_export_func(&wasi_mod, "fd_seek",    "(i32, i64, i32, i32) -> i32", hf_fd_seek,    NULL, NULL))) goto fail;
-
-    // 5. Create execution context + link modules
+    // 5. Create execution context + link
     memset(&g_ctx, 0, sizeof(g_ctx));
     if ((err = wah_new_exec_context(&g_ctx, &doom_mod, NULL))) goto fail;
     if ((err = wah_link_module(&g_ctx, "env", &env_mod))) goto fail;
     if ((err = wah_link_module(&g_ctx, "wasi_snapshot_preview1", &wasi_mod))) goto fail;
     printf("Modules linked OK\n");
 
-    // 6. Call _initialize (emscripten runtime init)
+    // 5. Call _initialize (emscripten runtime init)
     printf("Calling _initialize...\n");
     if ((err = wah_call_by_name(&g_ctx, "_initialize", NULL, 0, NULL))) {
         fprintf(stderr, "_initialize failed: %s\n", wah_strerror(err));
         goto fail;
     }
 
-    // 7. Call doom_init (loads WAD, sets up game)
+    // 6. Call doom_init (loads WAD, sets up game)
     printf("Calling doom_init...\n");
     if ((err = wah_call_by_name(&g_ctx, "doom_init", NULL, 0, NULL))) {
         fprintf(stderr, "doom_init failed: %s\n", wah_strerror(err));
@@ -444,7 +423,7 @@ int main(int argc, char *argv[]) {
     }
     printf("Doom initialized!\n");
 
-    // 8. Main loop: call doom_tick every frame
+    // 7. Main loop: call doom_tick every frame
     for (;;) {
         if ((err = wah_call_by_name(&g_ctx, "doom_tick", NULL, 0, NULL))) {
             fprintf(stderr, "doom_tick failed: %s\n", wah_strerror(err));

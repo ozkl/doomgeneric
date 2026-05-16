@@ -39,8 +39,8 @@ emcc.bat \
   -s EXPORTED_FUNCTIONS="$EXPORTS" \
   -s TOTAL_MEMORY=32MB \
   -s ALLOW_MEMORY_GROWTH=0 \
-  -s FORCE_FILESYSTEM=0 \
   --no-entry \
+  -include host_io.h \
   2>&1
 
 echo "=== Build complete: ${OUTPUT}.wasm ==="
