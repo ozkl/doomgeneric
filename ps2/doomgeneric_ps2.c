@@ -130,6 +130,15 @@ static void handleKeyInput(){
   }
 }
 
+// Controller input (ps2_pad.c, libpad). Buttons are already Doom keys, so push
+// them straight into the queue (no SDL-keysym conversion).
+extern void PS2Pad_Poll(void (*emit)(int pressed, unsigned char doomkey));
+static void pushDoomKey(int pressed, unsigned char doomKey)
+{
+  s_KeyQueue[s_KeyQueueWriteIndex] = (unsigned short)((pressed << 8) | doomKey);
+  s_KeyQueueWriteIndex = (s_KeyQueueWriteIndex + 1) % KEYQUEUE_SIZE;
+}
+
 
 // Boot text console (ps2_bootscr.c): on-screen boot log before SDL.
 extern void BootScr_Begin(void);
@@ -245,6 +254,7 @@ void DG_DrawFrame()
   SDL_RenderPresent(renderer);
 
   handleKeyInput();
+  PS2Pad_Poll(pushDoomKey);
 }
 
 void DG_SleepMs(uint32_t ms)

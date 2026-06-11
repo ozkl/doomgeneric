@@ -90,6 +90,15 @@ static void handleKeyInput(void)
   }
 }
 
+// Controller input (ps2_pad.c, libpad). Buttons are already mapped to Doom
+// keys, so push them straight into the queue (no SDL-keysym conversion).
+extern void PS2Pad_Poll(void (*emit)(int pressed, unsigned char doomkey));
+static void pushDoomKey(int pressed, unsigned char doomKey)
+{
+  s_KeyQueue[s_KeyQueueWriteIndex] = (unsigned short)((pressed << 8) | doomKey);
+  s_KeyQueueWriteIndex = (s_KeyQueueWriteIndex + 1) % KEYQUEUE_SIZE;
+}
+
 // ---- boot console + audio (ps2_bootscr.c / ps2_audio.c) ----------------
 
 extern void BootScr_Begin(void);
@@ -141,9 +150,23 @@ static void EnsureGs(void)
   BootScr_End();
 
   gsGlobal = gsKit_init_global();
-  gsGlobal->Mode          = GS_MODE_NTSC;
-  gsGlobal->Width         = DG_DISPLAY_W;
-  gsGlobal->Height        = DG_DISPLAY_H;
+#ifdef GS_OUTPUT_480P
+  // 480p progressive (DTV, 31 kHz): sharp + no interlace flicker. Needs a
+  // component/YPbPr cable on real hardware (works directly in PCSX2). 640x480
+  // CT24 double-buffered is ~2.5 MB, leaving plenty of the 4 MB VRAM for the tex.
+  gsGlobal->Mode      = GS_MODE_DTV_480P;
+  gsGlobal->Interlace = GS_NONINTERLACED;
+  gsGlobal->Field     = GS_FRAME;
+  gsGlobal->Width     = 640;
+  gsGlobal->Height    = 480;
+#else
+  // NTSC 640x448 interlaced: works on any TV including composite.
+  gsGlobal->Mode      = GS_MODE_NTSC;
+  gsGlobal->Interlace = GS_INTERLACED;
+  gsGlobal->Field     = GS_FIELD;
+  gsGlobal->Width     = DG_DISPLAY_W;
+  gsGlobal->Height    = DG_DISPLAY_H;
+#endif
   gsGlobal->PSM           = GS_PSM_CT24;
   gsGlobal->PSMZ          = GS_PSMZ_16S;
   gsGlobal->ZBuffering    = GS_SETTING_OFF;
@@ -220,7 +243,7 @@ void DG_DrawFrame(void)
   gsKit_prim_sprite_texture(gsGlobal, &tex,
                             0.0f, 0.0f,                          // screen x1,y1
                             0.0f, 0.0f,                          // tex   u1,v1
-                            (float) DG_DISPLAY_W, (float) DG_DISPLAY_H,   // x2,y2
+                            (float) gsGlobal->Width, (float) gsGlobal->Height, // x2,y2 (fills the active mode)
                             (float) DOOMGENERIC_RESX, (float) DOOMGENERIC_RESY, // u2,v2
                             0,                                   // z
                             GS_SETREG_RGBAQ(0x80, 0x80, 0x80, 0x80, 0x00)); // 1.0 modulate
@@ -230,6 +253,7 @@ void DG_DrawFrame(void)
   gsKit_TexManager_nextFrame(gsGlobal);
 
   handleKeyInput();
+  PS2Pad_Poll(pushDoomKey);
 }
 
 void DG_SleepMs(uint32_t ms)        { SDL_Delay(ms); }
