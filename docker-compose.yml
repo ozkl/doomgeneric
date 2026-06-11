@@ -1,0 +1,17 @@
+# Dockerized PS2 build environment (ps2dev toolchain + make).
+#
+#   docker compose build                    # build the ps2dock image once
+#   docker compose run --rm ps2dev make      # build ps2/doomgeneric.elf
+#   docker compose run --rm ps2dev make EMBED_WAD=1
+#   docker compose run --rm ps2dev           # interactive shell, cwd = /work/ps2
+#
+services:
+  ps2dev:
+    build: .
+    image: ps2dock:local
+    working_dir: /work/ps2
+    volumes:
+      - ./:/work
+    stdin_open: true
+    tty: true
+    command: ["/bin/bash"]

@@ -1,0 +1,35 @@
+name: PS2 build
+
+# Builds the PlayStation 2 port in the official ps2dev toolchain and uploads
+# the ELF. No WAD is embedded, so the artifact contains no game data and is
+# safe to publish; supply a WAD at runtime.
+
+on:
+  push:
+    branches: [ master, ps2-port ]
+    paths: [ 'ps2/**', 'doomgeneric/**', 'Dockerfile', '.github/workflows/ps2.yml' ]
+  pull_request:
+    paths: [ 'ps2/**', 'doomgeneric/**' ]
+  workflow_dispatch:
+
+jobs:
+  ps2-elf:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Run the build inside the ps2dev image (full PS2 toolchain + SDL2/gsKit/
+      # audsrv). checkout runs on the host so we don't need node in the
+      # Alpine-based toolchain image.
+      - name: Build PS2 ELF
+        run: |
+          docker run --rm -v "$PWD:/work" -w /work/ps2 \
+            ghcr.io/ps2dev/ps2dev:latest \
+            sh -c 'apk add --no-cache make bash >/dev/null && make'
+
+      - name: Upload ELF
+        uses: actions/upload-artifact@v4
+        with:
+          name: doomgeneric-ps2
+          path: ps2/doomgeneric.elf
+          if-no-files-found: error
