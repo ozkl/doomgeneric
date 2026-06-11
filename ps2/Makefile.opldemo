@@ -1,0 +1,74 @@
+# Standalone OPL music demo (no Doom). Isolates the FM synthesis path.
+#
+#   make -f Makefile.opldemo          -> opldemo.elf
+#   make -f Makefile.opldemo clean
+#
+# Reuses Doom's OPL music player + MIDI parser + the PS2 OPL renderer, but
+# links them against tiny stubs (opldemo_stubs.c) instead of the rest of Doom.
+# libSDL2main provides the PS2 entry point (IOP reset); audsrv drives the SPU2.
+
+VB = @
+EE_CC = mips64r5900el-ps2-elf-gcc
+DG  = ../doomgeneric
+BIN2C = $(PS2SDK)/bin/bin2c
+VPATH = $(DG)
+
+EE_CFLAGS = -D_EE -O2 -G0 -Wall -DHAVE_CONFIG_H -D__PS2__ -DFEATURE_SOUND \
+            -DDOOMGENERIC_RESX=320 -DDOOMGENERIC_RESY=200 \
+            -fdata-sections -ffunction-sections
+
+EE_INCS = -I. -I$(DG) \
+          -I$(GSKIT)/include \
+          -I$(PS2SDK)/ports/include/SDL2 \
+          -I$(PS2SDK)/ports/include \
+          -I$(PS2SDK)/ee/include \
+          -I$(PS2SDK)/common/include
+
+EE_LDFLAGS = -L$(PS2SDK)/ee/lib -L$(GSKIT)/lib -L$(PS2SDK)/ports/lib \
+             -Wl,--gc-sections
+
+EE_LIBS = -lSDL2main -lSDL2 -lps2_drivers \
+          -lgskit -ldmakit \
+          -ldebug -laudsrv \
+          -lfileXio -lpatches -lpad -lkbd \
+          -lm -lc -lkernel
+
+EE_OBJDIR = build_opldemo
+EE_BIN = opldemo.elf
+
+# Demo glue + embedded assets.
+DEMO_OBJS = opldemo_main.o opldemo_stubs.o demo_genmidi.o demo_song.o
+# OPL music path (PS2 sources + reused core).
+OPL_OBJS  = i_oplmusic.o midifile.o opl.o dbopl.o opl_queue.o opl_ps2.o \
+            memio.o mus2mid.o
+# SPU2 bring-up + on-screen console.
+PS2_OBJS  = ps2_audio.o ps2_audio_driver.o audsrv_irx.o libsd_irx.o ps2_bootscr.o
+
+EE_OBJS = $(addprefix $(EE_OBJDIR)/, $(DEMO_OBJS) $(OPL_OBJS) $(PS2_OBJS))
+
+all: $(EE_BIN)
+
+clean:
+	rm -rf $(EE_OBJDIR) $(EE_BIN) $(EE_BIN).map
+
+audsrv.irx:
+	cp $(PS2SDK)/iop/irx/audsrv.irx $@
+audsrv_irx.c: audsrv.irx
+	$(BIN2C) $< $@ audsrv_irx
+libsd.irx:
+	cp $(PS2SDK)/iop/irx/libsd.irx $@
+libsd_irx.c: libsd.irx
+	$(BIN2C) $< $@ libsd_irx
+
+$(EE_BIN): $(EE_OBJS)
+	@echo [Linking $@]
+	$(VB)$(EE_CC) $(EE_CFLAGS) $(EE_INCS) $(EE_LDFLAGS) $(EE_OBJS) \
+		-o $(EE_BIN) $(EE_LIBS) -Wl,-Map,$(EE_BIN).map
+
+$(EE_OBJS): | $(EE_OBJDIR)
+$(EE_OBJDIR):
+	$(VB)mkdir -p $(EE_OBJDIR)
+
+$(EE_OBJDIR)/%.o: %.c
+	@echo [Compiling $<]
+	$(VB)$(EE_CC) $(EE_CFLAGS) $(EE_INCS) -c $< -o $@

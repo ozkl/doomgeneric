@@ -1362,8 +1362,30 @@ void D_DoomMain (void)
     // Save configuration at exit.
     I_AtExit(M_SaveDefaults, false);
 
+#ifdef __PS2__
+    // Max the sfx + music volume (defaults 8/15), and pin the music sample
+    // rate to our mixer's 22050 (i_oplmusic does OPL_SetSampleRate(snd_samplerate),
+    // and the OPL music is mixed into the 22050 audsrv stream).
+    {
+        extern int sfxVolume, musicVolume, snd_samplerate;
+        sfxVolume = 8;       // normal; sfx is attenuated in the mixer for now
+        musicVolume = 15;
+        snd_samplerate = 22050;
+    }
+#endif
+
     // Find main IWAD file and load it.
+#ifdef __PS2__
+    // PS2 port: pick the IWAD from hostfs (controller menu if several are
+    // present next to the ELF) or fall back to the embedded shareware WAD.
+    // See ps2/ps2_iwad.c.
+    {
+        extern char *PS2_GetIWAD(void);
+        iwadfile = PS2_GetIWAD();
+    }
+#else
     iwadfile = D_FindIWAD(IWAD_MASK_DOOM, &gamemission);
+#endif
 
     // None found?
 

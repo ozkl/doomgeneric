@@ -984,7 +984,12 @@ static boolean I_SDL_InitSound(boolean _use_sfx_prefix)
         return false;
     }
 
+#ifdef __PS2__
+    // Mono halves the data the PS2 audio feed must push (helps underruns).
+    if (Mix_OpenAudio(snd_samplerate, AUDIO_S16SYS, 1, GetSliceSize()) < 0)
+#else
     if (Mix_OpenAudio(snd_samplerate, AUDIO_S16SYS, 2, GetSliceSize()) < 0)
+#endif
     {
         fprintf(stderr, "Error initialising SDL_mixer: %s\n", Mix_GetError());
         return false;
@@ -993,6 +998,18 @@ static boolean I_SDL_InitSound(boolean _use_sfx_prefix)
     ExpandSoundData = ExpandSoundData_SDL;
 
     Mix_QuerySpec(&mixer_freq, &mixer_format, &mixer_channels);
+
+#ifdef __PS2__
+    // PS2 port: report the audio backend so no-sound issues are diagnosable,
+    // and expose the negotiated rate to the backend's boot summary.
+    {
+        extern int g_dg_mixer_freq;
+        g_dg_mixer_freq = mixer_freq;
+    }
+    printf("snd: audio driver=%s, mixer=%d Hz, %d ch\n",
+           SDL_GetCurrentAudioDriver() ? SDL_GetCurrentAudioDriver() : "(none)",
+           mixer_freq, mixer_channels);
+#endif
 
 #ifdef HAVE_LIBSAMPLERATE
     if (use_libsamplerate != 0)

@@ -1,0 +1,7 @@
+EE_CC = mips64r5900el-ps2-elf-gcc
+EE_CFLAGS = -D_EE -O2 -G0 -Wall -D__PS2__
+EE_INCS = -I$(PS2SDK)/ports/include/SDL2 -I$(PS2SDK)/ports/include -I$(PS2SDK)/ee/include -I$(PS2SDK)/common/include
+EE_LDFLAGS = -L$(PS2SDK)/ee/lib -L$(GSKIT)/lib -L$(PS2SDK)/ports/lib
+EE_LIBS = -lSDL2main -lSDL2 -lps2_drivers -lgskit -ldmakit -lfileXio -lpatches -lpad -lkbd -lm -lc -lkernel
+smoke_sdl2.elf: smoke_sdl2.c
+	$(EE_CC) $(EE_CFLAGS) $(EE_INCS) $(EE_LDFLAGS) smoke_sdl2.c -o $@ $(EE_LIBS)

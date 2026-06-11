@@ -131,7 +131,13 @@ static void InitSfxModule(boolean use_sfx_prefix)
 static void InitMusicModule(void)
 {
 #ifdef FEATURE_SOUND
+#ifdef __PS2__
+    // PS2: authentic OPL2 FM music (GENMIDI from the IWAD), rendered into the
+    // native audsrv mixer. See ps2/i_oplmusic.c + ps2/opl_ps2.c.
+    music_module = &music_opl_module;
+#else
     music_module = &DG_music_module;
+#endif
 #endif /* FEATURE_SOUND */
 }
 

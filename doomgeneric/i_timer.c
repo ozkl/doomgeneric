@@ -94,3 +94,15 @@ void I_InitTimer(void)
     //SDL_Init(SDL_INIT_TIMER);
 }
 
+#ifdef __PS2__
+// Re-base the game clock so the next I_GetTime() starts from "now". Called
+// after the on-screen boot-log hold (doomgeneric_ps2.c), otherwise Doom would
+// see the seconds spent showing the log as elapsed game time and fast-forward
+// ("catch up") that many tics in a burst -- which desyncs the demo and thrashes
+// the music right as the graphics come up.
+void I_ResetBaseTime(void)
+{
+    basetime = 0;
+}
+#endif
+
