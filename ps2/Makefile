@@ -38,6 +38,16 @@ ifdef EMBED_WAD
 EE_CFLAGS += -DEMBED_WAD
 endif
 
+# GSKIT_VIDEO=1 swaps the SDL2 video backend (doomgeneric_ps2.c) for the native
+# gsKit PSMT8+CLUT one (doomgeneric_ps2_gs.c) and builds Doom with an 8-bit
+# indexed framebuffer (CMAP256) so the GS does the palette expand + upscale.
+ifdef GSKIT_VIDEO
+EE_CFLAGS += -DUSE_GSKIT -DCMAP256
+VIDEO_OBJ  = doomgeneric_ps2_gs.o
+else
+VIDEO_OBJ  = doomgeneric_ps2.o
+endif
+
 EE_INCS = -I. -I$(DG) \
           -I$(GSKIT)/include \
           -I$(PS2SDK)/ports/include/SDL2 \
@@ -76,7 +86,7 @@ CORE_OBJS = dummy.o am_map.o doomdef.o doomstat.o dstrings.o d_event.o d_items.o
 # --- PS2-specific objects (compiled from ./) ------------------------------
 # ps2_audio_driver.o overrides libps2_drivers' init_audio_driver so we control
 # the audsrv bring-up; libsd_irx.o + audsrv_irx.o are the IRX modules it loads.
-PS2_OBJS = doomgeneric_ps2.o w_file_ps2.o ps2_iwad.o \
+PS2_OBJS = $(VIDEO_OBJ) w_file_ps2.o ps2_iwad.o \
 	ps2_bootscr.o ps2_audio.o ps2_audio_driver.o ps2_menu.o \
 	i_audsrvsound.o audsrv_irx.o libsd_irx.o \
 	i_oplmusic.o midifile.o opl.o dbopl.o opl_queue.o opl_ps2.o

@@ -20,16 +20,23 @@ jobs:
 
       # Run the build inside the ps2dev image (full PS2 toolchain + SDL2/gsKit/
       # audsrv). checkout runs on the host so we don't need node in the
-      # Alpine-based toolchain image.
-      - name: Build PS2 ELF
+      # Alpine-based toolchain image. Build both video backends (no WAD).
+      - name: Build PS2 ELFs (SDL + gsKit video)
         run: |
           docker run --rm -v "$PWD:/work" -w /work/ps2 \
             ghcr.io/ps2dev/ps2dev:latest \
-            sh -c 'apk add --no-cache make bash >/dev/null && make'
+            sh -c '
+              set -e
+              apk add --no-cache make bash >/dev/null
+              make && cp doomgeneric.elf doomgeneric-sdl.elf
+              make clean && make GSKIT_VIDEO=1 && cp doomgeneric.elf doomgeneric-gskit.elf
+            '
 
-      - name: Upload ELF
+      - name: Upload ELFs
         uses: actions/upload-artifact@v4
         with:
           name: doomgeneric-ps2
-          path: ps2/doomgeneric.elf
+          path: |
+            ps2/doomgeneric-sdl.elf
+            ps2/doomgeneric-gskit.elf
           if-no-files-found: error
