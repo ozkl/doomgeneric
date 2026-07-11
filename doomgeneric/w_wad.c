@@ -33,6 +33,7 @@
 #include "i_video.h"
 #include "m_misc.h"
 #include "z_zone.h"
+#include "doom_bench.h"
 
 #include "w_wad.h"
 
@@ -324,11 +325,14 @@ int W_GetNumForName (char* name)
 //
 int W_LumpLength (unsigned int lump)
 {
+    doom_bench_phase_t bench_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_WAD);
+
     if (lump >= numlumps)
     {
 	I_Error ("W_LumpLength: %i >= numlumps", lump);
     }
 
+    doom_bench_phase_pop(bench_phase);
     return lumpinfo[lump].size;
 }
 
@@ -341,6 +345,8 @@ int W_LumpLength (unsigned int lump)
 //
 void W_ReadLump(unsigned int lump, void *dest)
 {
+    doom_bench_phase_t bench_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_WAD);
+    uint64_t start_cycles = doom_mcycle_read();
     int c;
     lumpinfo_t *l;
 	
@@ -362,6 +368,9 @@ void W_ReadLump(unsigned int lump, void *dest)
     }
 
     I_EndRead ();
+    doom_bench_note_read_lump((size_t)l->size,
+                              doom_mcycle_read() - start_cycles);
+    doom_bench_phase_pop(bench_phase);
 }
 
 
@@ -381,6 +390,7 @@ void W_ReadLump(unsigned int lump, void *dest)
 
 void *W_CacheLumpNum(int lumpnum, int tag)
 {
+    doom_bench_phase_t bench_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_WAD);
     byte *result;
     lumpinfo_t *lump;
 
@@ -390,6 +400,7 @@ void *W_CacheLumpNum(int lumpnum, int tag)
     }
 
     lump = &lumpinfo[lumpnum];
+    doom_bench_note_cache_lump_num(lump->cache != NULL);
 
     // Get the pointer to return.  If the lump is in a memory-mapped
     // file, we can just return a pointer to within the memory-mapped
@@ -418,6 +429,7 @@ void *W_CacheLumpNum(int lumpnum, int tag)
         result = lump->cache;
     }
 	
+    doom_bench_phase_pop(bench_phase);
     return result;
 }
 
@@ -609,4 +621,3 @@ void W_CheckCorrectIWAD(GameMission_t mission)
         }
     }
 }
-

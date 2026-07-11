@@ -28,6 +28,7 @@
 #include "i_system.h"
 #include "i_timer.h"
 #include "i_video.h"
+#include "doom_bench.h"
 
 #include "m_argv.h"
 #include "m_fixed.h"
@@ -705,6 +706,7 @@ static void SinglePlayerClear(ticcmd_set_t *set)
 
 void TryRunTics (void)
 {
+    doom_bench_phase_t bench_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_GAME);
     int	i;
     int	lowtic;
     int	entertic;
@@ -778,6 +780,7 @@ void TryRunTics (void)
 
 	if (I_GetTime() / ticdup - entertic > 0)
 	{
+            doom_bench_phase_pop(bench_phase);
 	    return;
 	}
 
@@ -793,6 +796,8 @@ void TryRunTics (void)
         {
             return;
         }
+
+        doom_bench_phase_pop(bench_phase);
 
         set = &ticdata[(gametic / ticdup) % BACKUPTICS];
 
@@ -818,6 +823,8 @@ void TryRunTics (void)
 
 	NetUpdate ();	// check for new console commands
     }
+
+    doom_bench_phase_pop(bench_phase);
 }
 
 void D_RegisterLoopCallbacks(loop_interface_t *i)

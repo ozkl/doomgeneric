@@ -23,17 +23,27 @@
 #include "doomtype.h"
 
 // Screen width and height.
+// These are Doom's internal render dimensions; the outer DoomGeneric buffer
+// size may match them or be scaled separately by the embedding platform.
 
-#define SCREENWIDTH  320
-#define SCREENHEIGHT 200
+#ifndef DOOM_INTERNAL_RESX
+#define DOOM_INTERNAL_RESX 320
+#endif
 
-// Screen width used for "squash" scale functions
+#ifndef DOOM_INTERNAL_RESY
+#define DOOM_INTERNAL_RESY 200
+#endif
 
-#define SCREENWIDTH_4_3 256
+#define SCREENWIDTH  DOOM_INTERNAL_RESX
+#define SCREENHEIGHT DOOM_INTERNAL_RESY
+
+// Screen width used for "squash" scale functions.
+
+#define SCREENWIDTH_4_3 ((SCREENWIDTH * 4) / 5)
 
 // Screen height used for "stretch" scale functions.
 
-#define SCREENHEIGHT_4_3 240
+#define SCREENHEIGHT_4_3 ((SCREENHEIGHT * 6) / 5)
 
 #define MAX_MOUSE_BUTTONS 8
 

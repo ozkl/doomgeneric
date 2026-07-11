@@ -63,6 +63,7 @@ void M_MakeDirectory(char *path)
 
 // Check if a file exists
 
+__attribute__((noinline, externally_visible))
 boolean M_FileExists(char *filename)
 {
     FILE *fstream;
@@ -533,4 +534,3 @@ char *M_OEMToUTF8(const char *oem)
 }
 
 #endif
-

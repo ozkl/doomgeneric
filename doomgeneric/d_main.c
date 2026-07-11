@@ -57,6 +57,7 @@
 #include "i_system.h"
 #include "i_timer.h"
 #include "i_video.h"
+#include "doom_bench.h"
 
 #include "g_game.h"
 
@@ -168,6 +169,7 @@ void R_ExecuteSetViewSize (void);
 
 void D_Display (void)
 {
+    doom_bench_phase_t bench_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_DISPLAY);
     static  boolean		viewactivestate = false;
     static  boolean		menuactivestate = false;
     static  boolean		inhelpscreensstate = false;
@@ -183,7 +185,10 @@ void D_Display (void)
     boolean			redrawsbar;
 
     if (nodrawers)
+    {
+        doom_bench_phase_pop(bench_phase);
     	return;                    // for comparative timing / profiling
+    }
 		
     redrawsbar = false;
     
@@ -215,12 +220,12 @@ void D_Display (void)
 			break;
 		if (automapactive)
 			AM_Drawer ();
-		if (wipe || (viewheight != 200 && fullscreen) )
+		if (wipe || (viewheight != SCREENHEIGHT && fullscreen) )
 			redrawsbar = true;
 		if (inhelpscreensstate && !inhelpscreens)
 			redrawsbar = true;              // just put away the help screen
-		ST_Drawer (viewheight == 200, redrawsbar );
-		fullscreen = viewheight == 200;
+		ST_Drawer (viewheight == SCREENHEIGHT, redrawsbar );
+		fullscreen = viewheight == SCREENHEIGHT;
 		break;
 
       case GS_INTERMISSION:
@@ -302,6 +307,7 @@ void D_Display (void)
     if (!wipe)
     {
 	I_FinishUpdate ();              // page flip or blit buffer
+        doom_bench_phase_pop(bench_phase);
 	return;
     }
     
@@ -326,6 +332,8 @@ void D_Display (void)
 	M_Drawer ();                            // menu is drawn even on top of wipes
 	I_FinishUpdate ();                      // page flip or blit buffer
     } while (!done);
+
+    doom_bench_phase_pop(bench_phase);
 }
 
 //
@@ -404,18 +412,27 @@ boolean D_GrabMouseCallback(void)
 
 void doomgeneric_Tick()
 {
+    doom_bench_phase_t bench_phase;
+    doom_bench_phase_t sub_phase;
+
     // frame syncronous IO operations
     I_StartFrame ();
 
+    bench_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_OTHER);
+
     TryRunTics (); // will run at least one tic
 
+    sub_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_SOUND);
     S_UpdateSounds (players[consoleplayer].mo);// move positional sounds
+    doom_bench_phase_pop(sub_phase);
 
     // Update display, next frame, with current state.
     if (screenvisible)
     {
         D_Display ();
     }
+
+    doom_bench_phase_pop(bench_phase);
 }
 
 //
@@ -1842,4 +1859,3 @@ void D_DoomMain (void)
 
     D_DoomLoop ();
 }
-

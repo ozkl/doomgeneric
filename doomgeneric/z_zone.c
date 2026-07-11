@@ -20,6 +20,7 @@
 #include "z_zone.h"
 #include "i_system.h"
 #include "doomtype.h"
+#include "doom_bench.h"
 
 
 //
@@ -125,6 +126,7 @@ void Z_Init (void)
 //
 void Z_Free (void* ptr)
 {
+    doom_bench_phase_t bench_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_ZONE);
     memblock_t*		block;
     memblock_t*		other;
 	
@@ -170,6 +172,8 @@ void Z_Free (void* ptr)
         if (other == mainzone->rover)
             mainzone->rover = block;
     }
+
+    doom_bench_phase_pop(bench_phase);
 }
 
 
@@ -187,6 +191,7 @@ Z_Malloc
   int		tag,
   void*		user )
 {
+    doom_bench_phase_t bench_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_ZONE);
     int		extra;
     memblock_t*	start;
     memblock_t* rover;
@@ -285,6 +290,7 @@ Z_Malloc
     mainzone->rover = base->next;	
 	
     base->id = ZONEID;
+    doom_bench_phase_pop(bench_phase);
     
     return result;
 }
@@ -428,6 +434,7 @@ void Z_CheckHeap (void)
 //
 void Z_ChangeTag2(void *ptr, int tag, char *file, int line)
 {
+    doom_bench_phase_t bench_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_ZONE);
     memblock_t*	block;
 	
     block = (memblock_t *) ((byte *)ptr - sizeof(memblock_t));
@@ -441,10 +448,12 @@ void Z_ChangeTag2(void *ptr, int tag, char *file, int line)
                 "for purgable blocks", file, line);
 
     block->tag = tag;
+    doom_bench_phase_pop(bench_phase);
 }
 
 void Z_ChangeUser(void *ptr, void **user)
 {
+    doom_bench_phase_t bench_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_ZONE);
     memblock_t*	block;
 
     block = (memblock_t *) ((byte *)ptr - sizeof(memblock_t));
@@ -456,6 +465,7 @@ void Z_ChangeUser(void *ptr, void **user)
 
     block->user = user;
     *user = ptr;
+    doom_bench_phase_pop(bench_phase);
 }
 
 
@@ -485,4 +495,3 @@ unsigned int Z_ZoneSize(void)
 {
     return mainzone->size;
 }
-

@@ -34,6 +34,7 @@
 
 #include "r_local.h"
 #include "r_sky.h"
+#include "doom_bench.h"
 
 
 
@@ -862,6 +863,7 @@ void R_SetupFrame (player_t* player)
 //
 void R_RenderPlayerView (player_t* player)
 {	
+    doom_bench_phase_t bench_phase = doom_bench_phase_push(DOOM_BENCH_PHASE_RENDER);
     R_SetupFrame (player);
 
     // Clear buffers.
@@ -885,6 +887,7 @@ void R_RenderPlayerView (player_t* player)
     NetUpdate ();
     
     R_DrawMasked ();
+    doom_bench_phase_pop(bench_phase);
 
     // Check for new console commands.
     NetUpdate ();				

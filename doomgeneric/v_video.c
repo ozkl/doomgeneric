@@ -162,7 +162,11 @@ void V_DrawPatch(int x, int y, patch_t *patch)
      || y < 0
      || y + SHORT(patch->height) > SCREENHEIGHT)
     {
+#if (SCREENWIDTH < 320) || (SCREENHEIGHT < 200)
+        return;
+#else
         I_Error("Bad V_DrawPatch x=%i y=%i patch.width=%i patch.height=%i topoffset=%i leftoffset=%i", x, y, patch->width, patch->height, patch->topoffset, patch->leftoffset);
+#endif
     }
 #endif
 
@@ -226,7 +230,11 @@ void V_DrawPatchFlipped(int x, int y, patch_t *patch)
      || y < 0
      || y + SHORT(patch->height) > SCREENHEIGHT)
     {
+#if (SCREENWIDTH < 320) || (SCREENHEIGHT < 200)
+        return;
+#else
         I_Error("Bad V_DrawPatchFlipped");
+#endif
     }
 #endif
 
@@ -291,7 +299,11 @@ void V_DrawTLPatch(int x, int y, patch_t * patch)
      || y < 0
      || y + SHORT(patch->height) > SCREENHEIGHT)
     {
+#if (SCREENWIDTH < 320) || (SCREENHEIGHT < 200)
+        return;
+#else
         I_Error("Bad V_DrawTLPatch");
+#endif
     }
 
     col = 0;
@@ -929,4 +941,3 @@ void V_DrawMouseSpeedBox(int speed)
     V_DrawVertLine(box_x + redline_x, box_y + 1,
                  MOUSE_SPEED_BOX_HEIGHT - 2, red);
 }
-
