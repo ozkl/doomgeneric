@@ -58,7 +58,8 @@
 #include <linux/input.h>
 #include <linux/input-event-codes.h>
 #include <linux/fb.h>
-
+#include <linux/kd.h>
+#include <signal.h>
 #include <stdbool.h>
 
 #define KEYQUEUE_SIZE 16
@@ -75,6 +76,7 @@ static struct timeval startTime;
 // framebuffer stuff 
 static uint8_t *fbPtr;
 static int fbFd;
+static int ttyFd;
 static unsigned int fbWidth, fbHeight, fbStride, fbBytesPerPixel, fbOffsetX, fbOffsetY;
 
 // input stuff
@@ -404,6 +406,21 @@ static void checkInputDevs() {
 	closedir(dir);
 }
 
+
+void RestoreVtMode(void)
+{
+	ioctl(ttyFd, KDSETMODE, KD_TEXT);
+	close(ttyFd);
+	ttyFd = -1;
+}
+
+void signal_handler(int sig)
+{
+	RestoreVtMode();
+	signal(sig, SIG_DFL);
+	raise(sig);
+}
+
 void DG_Init() {
 	int ret;
 	struct fb_var_screeninfo info;
@@ -444,6 +461,17 @@ void DG_Init() {
 
 	if (!fbPtr)
 		I_Error("Failed to mmap /dev/fb0: %s", strerror(errno));
+	
+
+	ttyFd = open("/dev/tty0", O_RDWR);
+	if(ttyFd < 0)
+	{
+		I_Error("Failed to open TTY device: %s", strerror(errno));
+	}
+	
+	ioctl(ttyFd, KDSETMODE, KD_GRAPHICS); // graphical mode, stops console accessing fb while we use it.
+	ioctl(fbFd, FBIOBLANK, FB_BLANK_UNBLANK); // unblank some DRM fbcon drivers will turn off the display.
+
 
 	// clear the screen
 	memset(fbPtr, 0, fbStride * fbHeight);
@@ -458,6 +486,11 @@ void DG_Init() {
 
 	// get the start time
 	gettimeofday(&startTime, NULL);
+	atexit(RestoreVtMode);
+	signal(SIGINT, signal_handler);
+	signal(SIGTERM, signal_handler);
+	signal(SIGSEGV, signal_handler);
+	signal(SIGABRT, signal_handler);
 }
 
 void DG_DrawFrame() {
