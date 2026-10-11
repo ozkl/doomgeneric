@@ -76,7 +76,8 @@ static struct timeval startTime;
 // framebuffer stuff 
 static uint8_t *fbPtr;
 static int fbFd;
-static int ttyFd;
+static int ttyFd = -1;
+static int savedTtyMode;
 static unsigned int fbWidth, fbHeight, fbStride, fbBytesPerPixel, fbOffsetX, fbOffsetY;
 
 // input stuff
@@ -407,14 +408,17 @@ static void checkInputDevs() {
 }
 
 
-void RestoreVtMode(void)
+static void RestoreVtMode(void)
 {
-	ioctl(ttyFd, KDSETMODE, KD_TEXT);
+	if (ttyFd < 0)
+		return;
+
+	ioctl(ttyFd, KDSETMODE, savedTtyMode);
 	close(ttyFd);
 	ttyFd = -1;
 }
 
-void signal_handler(int sig)
+static void signal_handler(int sig)
 {
 	RestoreVtMode();
 	signal(sig, SIG_DFL);
@@ -464,13 +468,26 @@ void DG_Init() {
 	
 
 	ttyFd = open("/dev/tty0", O_RDWR);
-	if(ttyFd < 0)
-	{
+	if (ttyFd < 0)
 		I_Error("Failed to open TTY device: %s", strerror(errno));
-	}
-	
-	ioctl(ttyFd, KDSETMODE, KD_GRAPHICS); // graphical mode, stops console accessing fb while we use it.
-	ioctl(fbFd, FBIOBLANK, FB_BLANK_UNBLANK); // unblank some DRM fbcon drivers will turn off the display.
+
+	if (ioctl(ttyFd, KDGETMODE, &savedTtyMode) < 0)
+		I_Error("Failed to get TTY mode: %s", strerror(errno));
+
+	// Register cleanup before switching modes, in case no keyboard is found.
+	if (atexit(RestoreVtMode) != 0)
+		I_Error("Failed to register TTY cleanup");
+	signal(SIGINT, signal_handler);
+	signal(SIGTERM, signal_handler);
+	signal(SIGSEGV, signal_handler);
+	signal(SIGABRT, signal_handler);
+
+	if (ioctl(ttyFd, KDSETMODE, KD_GRAPHICS) < 0)
+		I_Error("Failed to set TTY graphics mode: %s", strerror(errno));
+
+	// Some drivers blank the display when switching modes.
+	if (ioctl(fbFd, FBIOBLANK, FB_BLANK_UNBLANK) < 0)
+		fprintf(stderr, "Warning: failed to unblank framebuffer: %s\n", strerror(errno));
 
 
 	// clear the screen
@@ -486,11 +503,6 @@ void DG_Init() {
 
 	// get the start time
 	gettimeofday(&startTime, NULL);
-	atexit(RestoreVtMode);
-	signal(SIGINT, signal_handler);
-	signal(SIGTERM, signal_handler);
-	signal(SIGSEGV, signal_handler);
-	signal(SIGABRT, signal_handler);
 }
 
 void DG_DrawFrame() {
