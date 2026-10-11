@@ -25,7 +25,7 @@
 // Outside Windows, we use strings.h for str[n]casecmp.
 
 
-#ifdef _WIN32
+#ifdef _MSC_VER
 
 #define strcasecmp _stricmp
 #define strncasecmp _strnicmp
