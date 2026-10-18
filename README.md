@@ -2,6 +2,14 @@
 The purpose of doomgeneric is to make porting Doom easier.
 Of course Doom is already portable but with doomgeneric it is possible with just a few functions.
 
+## Licensing clarification (draft)
+The root [LICENSE](LICENSE) contains the GNU GPL version 2 text. The files
+`doomgeneric/config.h`, `doomgeneric/doomgeneric.c`, `doomgeneric/doomgeneric.h`,
+`doomgeneric/dummy.c`, and `doomgeneric/icon.c` do not state per-file license
+terms in their headers. This draft section requests confirmation from the
+relevant rights holders of the exact terms for each file, including whether
+an "or later" option applies. It does not change or grant any license.
+
 To try it you will need a WAD file (game data). If you don't own the game, shareware version is freely available (doom1.wad).
 
 # porting
