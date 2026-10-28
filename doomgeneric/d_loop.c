@@ -39,6 +39,7 @@
 #include "net_server.h"
 #include "net_sdl.h"
 #include "net_loop.h"
+#include "d_doomcom.h"    // vanilla net games (IPXSETUP/SERSETUP): d_net.c
 
 // The complete set of data for a particular tic.
 
@@ -211,6 +212,12 @@ void NetUpdate (void)
 
     if (singletics)
         return;
+
+    if (D_VanillaNet())
+    {
+        D_VanillaNetUpdate();
+        return;
+    }
 
 #ifdef FEATURE_MULTIPLAYER
 
@@ -559,6 +566,7 @@ boolean D_InitNetGame(net_connect_data_t *connect_data)
 //
 void D_QuitNetGame (void)
 {
+    D_VanillaQuitNetGame();
 #ifdef FEATURE_MULTIPLAYER
     NET_SV_Shutdown();
     NET_CL_Disconnect();
@@ -712,6 +720,12 @@ void TryRunTics (void)
     int realtics;
     int	availabletics;
     int	counts;
+
+    if (D_VanillaNet())
+    {
+        D_VanillaTryRunTics();
+        return;
+    }
 
     // get real tics
     entertic = I_GetTime() / ticdup;

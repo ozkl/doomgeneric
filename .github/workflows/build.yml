@@ -1,0 +1,109 @@
+name: Build MS-DOS Doom
+
+on:
+  push:
+    branches: [master, main]
+    tags: ['v*']
+  pull_request:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: msdos
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF_NAME}"
+          else
+            # Date-based version (UTC), e.g. v20261027
+            VERSION="v$(date -u +%Y%m%d)"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Using version: ${VERSION}"
+
+      - name: Build doom.exe (embedded CWSDPMI)
+        run: |
+          make DOCKER=1 msdos_embedded
+          ls -la doom.exe
+          file doom.exe || true
+
+      - name: Create release zip
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          mkdir -p release
+          cp doom.exe release/
+          cp default.cfg release/DEFAULT.CFG
+          cat > release/README.txt << EOF
+          Bare Metal Doom - MS-DOS / FreeDOS (DJGPP)
+
+          doom.exe   - Self-contained (CWSDPMI embedded)
+          Requires: 386+ with FPU (or EMU387.DXE), ~8 MB RAM
+          Sound:     set BLASTER=A220 I5 D1 (or similar)
+          WAD:       Place doom.wad / doom2.wad / doom1.wad / freedoom*.wad next
+                     to the exe (keep the original file name)
+
+          Controls:  W/S move, A/D strafe, mouse turns and looks up/down,
+                     Ctrl or left button fires, Space opens doors, Shift runs.
+                     The arrow keys move and turn too.
+          DEFAULT.CFG holds the key bindings and settings: edit it with any
+                     text editor. Keys are DOS scan codes (W=17 A=30 S=31
+                     D=32 Space=57 Ctrl=29 Shift=54 Alt=56 E=18 F=33 Q=16).
+                     mouse_freelook 0 brings back vanilla mouse-forward and
+                     autoaim; mouse_invert 1 inverts looking.
+          Video:     320x200 (VGA mode 13h) by default. In DEFAULT.CFG,
+                     screen_widescreen 1 shows more at the sides (16:9) and
+                     screen_scale 2 or 3 renders at 2x/3x (640x400, 852x400
+                     wide, up to 1278x600). These use a VESA mode, picked to
+                     fit (or -vesa 1280x720 / set DOOMVID=1280x720).
+                     Same from the command line: -widescreen -hires 2
+                     Widescreen needs a 16:9 VESA mode, or it's shown with
+                     bars: in DOSBox Staging set vesa_modes = all and
+                     vmemsize = 8 under [dosbox] (adds 848x480). Doom says
+                     which mode it used when you quit.
+          Net play:  run the original IPXSETUP.EXE or SERSETUP.EXE as usual;
+                     it starts DOOM.EXE (this one). Can play against the
+                     original DOOM.EXE v1.9; free look when everyone runs this.
+
+          Version:   ${VERSION}
+          Built from: ${GITHUB_REPOSITORY}@${GITHUB_SHA}
+          EOF
+          cd release
+          zip -9 "../doom-msdos-${VERSION}.zip" *
+          cd ..
+          ls -la *.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: doom-msdos-${{ steps.version.outputs.version }}
+          path: msdos/doom-msdos-*.zip
+          if-no-files-found: error
+
+      # Create / update a release for every successful build on master/main
+      # (or when a v* tag is pushed)
+      - name: Create GitHub Release
+        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          files: msdos/doom-msdos-*.zip
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

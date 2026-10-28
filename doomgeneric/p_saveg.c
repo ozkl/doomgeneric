@@ -640,6 +640,7 @@ static void saveg_write_pspdef_t(pspdef_t *str)
 
 static void saveg_read_player_t(player_t *str)
 {
+    str->lookdir = 0;                   // free look: not in the savegame
     int i;
 
     // mobj_t* mo;

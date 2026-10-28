@@ -57,6 +57,12 @@
 #include "sounds.h"
 
 #include "m_menu.h"
+#ifdef BAREMETAL
+#include "bm_audio.h"   // ../baremetal: the sound cards the kernel found
+#endif
+#ifdef BM_HOSTED
+#include "bm.h"         // ../baremetal: in a window (Linux): fullscreen or not
+#endif
 
 
 extern patch_t*		hu_font[HU_FONTSIZE];
@@ -187,6 +193,12 @@ void M_QuitDOOM(int choice);
 void M_ChangeMessages(int choice);
 void M_ChangeSensitivity(int choice);
 void M_SfxVol(int choice);
+#ifdef BAREMETAL
+void M_SoundCard(int choice);
+#endif
+#ifdef BM_HOSTED
+void M_Fullscreen(int choice);
+#endif
 void M_MusicVol(int choice);
 void M_ChangeDetail(int choice);
 void M_SizeDisplay(int choice);
@@ -338,6 +350,9 @@ enum
     mousesens,
     option_empty2,
     soundvol,
+#ifdef BM_HOSTED
+    opt_fullscreen,     // in a window: fullscreen on/off (text, no graphic)
+#endif
     opt_end
 } options_e;
 
@@ -350,7 +365,10 @@ menuitem_t OptionsMenu[]=
     {-1,"",0,'\0'},
     {2,"M_MSENS",	M_ChangeSensitivity,'m'},
     {-1,"",0,'\0'},
-    {1,"M_SVOL",	M_Sound,'s'}
+    {1,"M_SVOL",	M_Sound,'s'},
+#ifdef BM_HOSTED
+    {2,"",		M_Fullscreen,'f'},
+#endif
 };
 
 menu_t  OptionsDef =
@@ -359,7 +377,12 @@ menu_t  OptionsDef =
     &MainDef,
     OptionsMenu,
     M_DrawOptions,
+#ifdef BM_HOSTED
+    60,30,              // a line more (fullscreen): up, right under the title,
+                        // so the last line ends above the status bar (168)
+#else
     60,37,
+#endif
     0
 };
 
@@ -417,6 +440,9 @@ enum
     sfx_empty1,
     music_vol,
     sfx_empty2,
+#ifdef BAREMETAL
+    sound_card,         // bare metal: which sound card (text, no graphic)
+#endif
     sound_end
 } sound_e;
 
@@ -425,7 +451,10 @@ menuitem_t SoundMenu[]=
     {2,"M_SFXVOL",M_SfxVol,'s'},
     {-1,"",0,'\0'},
     {2,"M_MUSVOL",M_MusicVol,'m'},
-    {-1,"",0,'\0'}
+    {-1,"",0,'\0'},
+#ifdef BAREMETAL
+    {2,"",M_SoundCard,'c'},
+#endif
 };
 
 menu_t  SoundDef =
@@ -840,7 +869,29 @@ void M_DrawSound(void)
 
     M_DrawThermo(SoundDef.x,SoundDef.y+LINEHEIGHT*(music_vol+1),
 		 16,musicVolume);
+
+#ifdef BAREMETAL
+    {
+        // "CARD: <name>", cut to fit the screen; Left/Right/Enter change it.
+        char line[80];
+        int n = bm_audio_current();
+        M_snprintf(line, sizeof line, "CARD: %s", bm_audio_label(n));
+        while (strlen(line) > 6 && SoundDef.x + M_StringWidth(line) > ORIGWIDTH - 4)
+            line[strlen(line) - 1] = '\0';
+        M_WriteText(SoundDef.x, SoundDef.y + LINEHEIGHT * sound_card + 3, line);
+    }
+#endif
 }
+
+#ifdef BAREMETAL
+void M_SoundCard(int choice)
+{
+    int count = bm_audio_count(), cur = bm_audio_current();
+    if (count <= 1) return;
+    cur = choice ? (cur + 1) % count : (cur + count - 1) % count;
+    bm_audio_select(cur);
+}
+#endif
 
 void M_Sound(int choice)
 {
@@ -1002,7 +1053,20 @@ void M_DrawOptions(void)
 
     M_DrawThermo(OptionsDef.x,OptionsDef.y+LINEHEIGHT*(scrnsize+1),
 		 9,screenSize);
+
+#ifdef BM_HOSTED
+    M_WriteText(OptionsDef.x, OptionsDef.y + LINEHEIGHT * opt_fullscreen + 2,
+                bm_fullscreen() ? "FULLSCREEN: ON" : "FULLSCREEN: OFF");
+#endif
 }
+
+#ifdef BM_HOSTED
+// Left, Right or Enter: switch.
+void M_Fullscreen(int choice)
+{
+    bm_set_fullscreen(!bm_fullscreen());
+}
+#endif
 
 void M_Options(int choice)
 {
@@ -1390,7 +1454,7 @@ M_WriteText
 	}
 		
 	w = SHORT (hu_font[c]->width);
-	if (cx+w > SCREENWIDTH)
+	if (cx+w > ORIGWIDTH)
 	    break;
 	V_DrawPatchDirect(cx, cy, hu_font[c]);
 	cx+=w;
@@ -1964,7 +2028,7 @@ void M_Drawer (void)
     if (messageToPrint)
     {
 	start = 0;
-	y = SCREENHEIGHT/2 - M_StringHeight(messageString) / 2;
+	y = ORIGHEIGHT/2 - M_StringHeight(messageString) / 2;
 	while (messageString[start] != '\0')
 	{
 	    int foundnewline = 0;
@@ -1992,7 +2056,7 @@ void M_Drawer (void)
                 start += strlen(string);
             }
 
-	    x = SCREENWIDTH/2 - M_StringWidth(string) / 2;
+	    x = ORIGWIDTH/2 - M_StringWidth(string) / 2;
 	    M_WriteText(x, y, string);
 	    y += SHORT(hu_font[0]->height);
 	}

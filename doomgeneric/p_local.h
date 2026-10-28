@@ -24,6 +24,8 @@
 #include "r_local.h"
 #endif
 
+boolean P_FreeLook (void);         // p_user.c
+
 #define FLOATSPEED		(FRACUNIT*4)
 
 

@@ -147,7 +147,12 @@ int             testcontrols_mousespeed;
  
 wbstartstruct_t wminfo;               	// parms for world map / intermission 
  
-byte		consistancy[MAXPLAYERS][BACKUPTICS]; 
+// Net game sync check, as vanilla: each ticcmd carries the player's x from
+// CONSISTANCY_TICS tics earlier, and every peer compares it with its own.
+// Vanilla's window is its BACKUPTICS, 12; it must match to play with
+// DOOM.EXE (d_net.c, -net).
+#define CONSISTANCY_TICS 12
+short		consistancy[MAXPLAYERS][CONSISTANCY_TICS]; 
  
 #define MAXPLMOVE		(forwardmove[1]) 
  
@@ -204,6 +209,11 @@ static boolean *mousebuttons = &mousearray[1];  // allow [-1]
 // mouse values are used once 
 int             mousex;
 int             mousey;         
+
+// Free look: the mouse's vertical motion turns the view up and down
+// instead of moving forward and back.
+int             mouse_freelook = 1;
+int             mouse_invert = 0;
 
 static int      dclicktime;
 static boolean  dclickstate;
@@ -332,7 +342,7 @@ void G_BuildTiccmd (ticcmd_t* cmd, int maketic)
     memset(cmd, 0, sizeof(ticcmd_t));
 
     cmd->consistancy = 
-	consistancy[consoleplayer][maketic%BACKUPTICS]; 
+	consistancy[consoleplayer][maketic%CONSISTANCY_TICS]; 
  
     strafe = gamekeydown[key_strafe] || mousebuttons[mousebstrafe] 
 	|| joybuttons[joybstrafe]; 
@@ -393,12 +403,13 @@ void G_BuildTiccmd (ticcmd_t* cmd, int maketic)
 	    cmd->angleturn += angleturn[tspeed]; 
     } 
  
-    if (gamekeydown[key_up]) 
+    // The arrows move too, whatever's bound (key_up defaults to W).
+    if (gamekeydown[key_up] || gamekeydown[KEY_UPARROW])
     {
 	// fprintf(stderr, "up\n");
 	forward += forwardmove[speed]; 
     }
-    if (gamekeydown[key_down]) 
+    if (gamekeydown[key_down] || gamekeydown[KEY_DOWNARROW]) 
     {
 	// fprintf(stderr, "down\n");
 	forward -= forwardmove[speed]; 
@@ -534,7 +545,17 @@ void G_BuildTiccmd (ticcmd_t* cmd, int maketic)
         } 
     }
 
-    forward += mousey; 
+    // Free look: vertical mouse motion is pitch, at the same rate as turning
+    // (a lookdir unit and an angleturn step of 8 are both ~0.044 degrees).
+    // Demos, and net games with the original DOOM.EXE in them, keep
+    // vanilla's mouse-forward and autoaim (P_FreeLook).
+    if (P_FreeLook())
+    {
+        cmd->lookflags = LOOK_ACTIVE;
+        cmd->lookdelta = mouse_invert ? -mousey : mousey;
+    }
+    else
+        forward += mousey; 
 
     if (strafe) 
 	side += mousex*2; 
@@ -827,8 +848,8 @@ boolean G_Responder (event_t* ev)
 		 
       case ev_mouse: 
         SetMouseButtons(ev->data1);
-	mousex = ev->data2*(mouseSensitivity+5)/10; 
-	mousey = ev->data3*(mouseSensitivity+5)/10; 
+	mousex += ev->data2*(mouseSensitivity+5)/10; 
+	mousey += ev->data3*(mouseSensitivity+5)/10; 
 	return true;    // eat events 
  
       case ev_joystick: 
@@ -903,7 +924,7 @@ void G_Ticker (void)
     
     // get commands, check consistancy,
     // and build new consistancy check
-    buf = (gametic/ticdup)%BACKUPTICS; 
+    buf = (gametic/ticdup)%CONSISTANCY_TICS; 
  
     for (i=0 ; i<MAXPLAYERS ; i++)
     {
@@ -945,7 +966,7 @@ void G_Ticker (void)
 
 	    if (netgame && !netdemo && !(gametic%ticdup) ) 
 	    { 
-		if (gametic > BACKUPTICS 
+		if (gametic > CONSISTANCY_TICS 
 		    && consistancy[i][buf] != cmd->consistancy) 
 		{ 
 		    I_Error ("consistency failure (%i should be %i)",
@@ -1905,6 +1926,8 @@ void G_ReadDemoTiccmd (ticcmd_t* cmd)
     } 
     cmd->forwardmove = ((signed char)*demo_p++); 
     cmd->sidemove = ((signed char)*demo_p++); 
+    cmd->lookdelta = 0;                 // demos are vanilla: no free look
+    cmd->lookflags = 0;
 
     // If this is a longtics demo, read back in higher resolution
 

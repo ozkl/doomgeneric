@@ -80,42 +80,71 @@ void V_MarkRect(int x, int y, int width, int height)
  
 
 //
-// V_CopyRect 
-// 
+// V_CopyRect
+// In ORIGWIDTH x ORIGHEIGHT coordinates, like the patches: the status bar
+// copies its background (st_backing_screen, SCREENWIDTH wide) this way.
+// Scaled by HIRES and moved right by WIDESCREENDELTA, clipped to the
+// screen.
+//
 void V_CopyRect(int srcx, int srcy, byte *source,
                 int width, int height,
                 int destx, int desty)
-{ 
+{
     byte *src;
-    byte *dest; 
- 
-#ifdef RANGECHECK 
-    if (srcx < 0
-     || srcx + width > SCREENWIDTH
-     || srcy < 0
-     || srcy + height > SCREENHEIGHT 
-     || destx < 0
-     || destx + width > SCREENWIDTH
-     || desty < 0
-     || desty + height > SCREENHEIGHT)
+    byte *dest;
+    int sx, dx, w;
+
+    V_MarkRect(destx, desty, width, height);
+
+    srcx = (srcx + WIDESCREENDELTA) * HIRES;
+    destx = (destx + WIDESCREENDELTA) * HIRES;
+    srcy *= HIRES;
+    desty *= HIRES;
+    width *= HIRES;
+    height *= HIRES;
+
+    // Clip horizontally (both rectangles move together).
+    sx = srcx; dx = destx; w = width;
+    if (dx < 0) { sx -= dx; w += dx; dx = 0; }
+    if (sx < 0) { dx -= sx; w += sx; sx = 0; }
+    if (dx + w > SCREENWIDTH) w = SCREENWIDTH - dx;
+    if (sx + w > SCREENWIDTH) w = SCREENWIDTH - sx;
+    if (w <= 0 || desty < 0 || srcy < 0)
+        return;
+    if (desty + height > SCREENHEIGHT)
+        height = SCREENHEIGHT - desty;
+
+    src = source + SCREENWIDTH * srcy + sx;
+    dest = dest_screen + SCREENWIDTH * desty + dx;
+
+    for ( ; height>0 ; height--)
     {
-        I_Error ("Bad V_CopyRect");
+        memcpy(dest, src, w);
+        src += SCREENWIDTH;
+        dest += SCREENWIDTH;
     }
-#endif 
+}
 
-    V_MarkRect(destx, desty, width, height); 
- 
-    src = source + SCREENWIDTH * srcy + srcx; 
-    dest = dest_screen + SCREENWIDTH * desty + destx; 
+//
+// V_FillFlat
+// Tiles a 64x64 flat over the first `rows` pixel rows of the buffer being
+// drawn to, at HIRES: the border around a small view, the sides of the
+// status bar in widescreen, the finale's text screen.
+//
+void V_FillFlat(byte *flat, int rows)
+{
+    int x, y;
+    byte *dest = dest_screen;
 
-    for ( ; height>0 ; height--) 
-    { 
-        memcpy(dest, src, width); 
-        src += SCREENWIDTH; 
-        dest += SCREENWIDTH; 
-    } 
-} 
- 
+    for (y = 0; y < rows; y++)
+    {
+        const byte *line = flat + (((y / HIRES) & 63) << 6);
+
+        for (x = 0; x < SCREENWIDTH; x++)
+            *dest++ = line[(x / HIRES) & 63];
+    }
+}
+
 //
 // V_SetPatchClipCallback
 //
@@ -133,18 +162,16 @@ void V_SetPatchClipCallback(vpatchclipfunc_t func)
 
 //
 // V_DrawPatch
-// Masks a column based masked pic to the screen. 
+// Masks a column based masked pic to the screen.
+// x, y in ORIGWIDTH x ORIGHEIGHT coordinates: each patch pixel becomes
+// HIRES x HIRES screen pixels, moved right by WIDESCREENDELTA, clipped
+// to the screen.
 //
 
-void V_DrawPatch(int x, int y, patch_t *patch)
-{ 
-    int count;
-    int col;
+static void DrawPatchScaled(int x, int y, patch_t *patch, boolean flipped)
+{
+    int col, w, h;
     column_t *column;
-    byte *desttop;
-    byte *dest;
-    byte *source;
-    int w;
 
     y -= SHORT(patch->topoffset);
     x -= SHORT(patch->leftoffset);
@@ -156,42 +183,73 @@ void V_DrawPatch(int x, int y, patch_t *patch)
             return;
     }
 
-#ifdef RANGECHECK
-    if (x < 0
-     || x + SHORT(patch->width) > SCREENWIDTH
-     || y < 0
-     || y + SHORT(patch->height) > SCREENHEIGHT)
-    {
-        I_Error("Bad V_DrawPatch x=%i y=%i patch.width=%i patch.height=%i topoffset=%i leftoffset=%i", x, y, patch->width, patch->height, patch->topoffset, patch->leftoffset);
-    }
-#endif
-
-    V_MarkRect(x, y, SHORT(patch->width), SHORT(patch->height));
-
-    col = 0;
-    desttop = dest_screen + y * SCREENWIDTH + x;
-
     w = SHORT(patch->width);
+    h = SHORT(patch->height);
+    V_MarkRect(x, y, w, h);
 
-    for ( ; col<w ; x++, col++, desttop++)
+    // A whole-screen picture (title, help, intermission backgrounds) in
+    // widescreen: black at the sides rather than whatever was there.
+    if (WIDESCREENDELTA && x == 0 && y == 0 && w == ORIGWIDTH && h == ORIGHEIGHT)
     {
-        column = (column_t *)((byte *)patch + LONG(patch->columnofs[col]));
+        int row, side = WIDESCREENDELTA * HIRES;
+
+        for (row = 0; row < SCREENHEIGHT; row++)
+        {
+            memset(dest_screen + row * SCREENWIDTH, 0, side);
+            memset(dest_screen + row * SCREENWIDTH + SCREENWIDTH - side, 0, side);
+        }
+    }
+
+    x += WIDESCREENDELTA;
+
+    for (col = 0; col < w; col++)
+    {
+        int sx = (x + col) * HIRES;         // the first screen column
+        int k0 = 0, k1 = HIRES;
+
+        if (sx + HIRES <= 0)
+            continue;
+        if (sx >= SCREENWIDTH)
+            break;
+        if (sx < 0)
+            k0 = -sx;
+        if (sx + k1 > SCREENWIDTH)
+            k1 = SCREENWIDTH - sx;
+
+        column = (column_t *)((byte *)patch
+                 + LONG(patch->columnofs[flipped ? w-1-col : col]));
 
         // step through the posts in a column
         while (column->topdelta != 0xff)
         {
-            source = (byte *)column + 3;
-            dest = desttop + column->topdelta*SCREENWIDTH;
-            count = column->length;
+            byte *source = (byte *)column + 3;
+            int sy = (y + column->topdelta) * HIRES;
+            int n = column->length * HIRES;
+            int i;
 
-            while (count--)
+            for (i = 0; i < n; i++)
             {
-                *dest = *source++;
-                dest += SCREENWIDTH;
+                int yy = sy + i;
+                byte c, *dest;
+                int k;
+
+                if (yy < 0)
+                    continue;
+                if (yy >= SCREENHEIGHT)
+                    break;
+                c = source[i / HIRES];
+                dest = dest_screen + yy * SCREENWIDTH + sx;
+                for (k = k0; k < k1; k++)
+                    dest[k] = c;
             }
             column = (column_t *)((byte *)column + column->length + 4);
         }
     }
+}
+
+void V_DrawPatch(int x, int y, patch_t *patch)
+{
+    DrawPatchScaled(x, y, patch, false);
 }
 
 //
@@ -202,60 +260,7 @@ void V_DrawPatch(int x, int y, patch_t *patch)
 
 void V_DrawPatchFlipped(int x, int y, patch_t *patch)
 {
-    int count;
-    int col; 
-    column_t *column; 
-    byte *desttop;
-    byte *dest;
-    byte *source; 
-    int w; 
- 
-    y -= SHORT(patch->topoffset); 
-    x -= SHORT(patch->leftoffset); 
-
-    // haleyjd 08/28/10: Strife needs silent error checking here.
-    if(patchclip_callback)
-    {
-        if(!patchclip_callback(patch, x, y))
-            return;
-    }
-
-#ifdef RANGECHECK 
-    if (x < 0
-     || x + SHORT(patch->width) > SCREENWIDTH
-     || y < 0
-     || y + SHORT(patch->height) > SCREENHEIGHT)
-    {
-        I_Error("Bad V_DrawPatchFlipped");
-    }
-#endif
-
-    V_MarkRect (x, y, SHORT(patch->width), SHORT(patch->height));
-
-    col = 0;
-    desttop = dest_screen + y * SCREENWIDTH + x;
-
-    w = SHORT(patch->width);
-
-    for ( ; col<w ; x++, col++, desttop++)
-    {
-        column = (column_t *)((byte *)patch + LONG(patch->columnofs[w-1-col]));
-
-        // step through the posts in a column
-        while (column->topdelta != 0xff )
-        {
-            source = (byte *)column + 3;
-            dest = desttop + column->topdelta*SCREENWIDTH;
-            count = column->length;
-
-            while (count--)
-            {
-                *dest = *source++;
-                dest += SCREENWIDTH;
-            }
-            column = (column_t *)((byte *)column + column->length + 4);
-        }
-    }
+    DrawPatchScaled(x, y, patch, true);
 }
 
 

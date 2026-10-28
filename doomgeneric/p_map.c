@@ -998,6 +998,28 @@ boolean PTR_ShootTraverse (intercept_t* in)
 	y = trace.y + FixedMul (trace.dy, frac);
 	z = shootz + FixedMul (aimslope, FixedMul(frac, attackrange));
 
+	// Free look can aim a shot into the floor (or ceiling) before it
+	// reaches this wall: put the puff where it met the flat instead.
+	if (shootthing->player && P_LookActive(shootthing->player) && aimslope)
+	{
+	    sector_t*	sec;
+	    fixed_t	h;
+
+	    sec = P_PointOnLineSide (trace.x, trace.y, li) ? li->backsector : li->frontsector;
+	    if (sec && ((z < sec->floorheight && aimslope < 0)
+		     || (z > sec->ceilingheight && aimslope > 0)))
+	    {
+		if (aimslope > 0 && sec->ceilingpic == skyflatnum)
+		    return false;		// into the sky
+		h = aimslope < 0 ? sec->floorheight : sec->ceilingheight;
+		frac = FixedDiv (FixedDiv (h - shootz, aimslope), attackrange);
+		x = trace.x + FixedMul (trace.dx, frac);
+		y = trace.y + FixedMul (trace.dy, frac);
+		P_SpawnPuff (x, y, h);
+		return false;
+	    }
+	}
+
 	if (li->frontsector->ceilingpic == skyflatnum)
 	{
 	    // don't shoot the sky!

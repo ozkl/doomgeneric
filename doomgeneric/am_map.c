@@ -198,8 +198,10 @@ static int 	grid = 0;
 static int 	leveljuststarted = 1; 	// kluge until AM_LevelInit() is called
 
 boolean    	automapactive = false;
-static int 	finit_width = SCREENWIDTH;
-static int 	finit_height = SCREENHEIGHT - 32;
+// The screen above the status bar; set when a level starts (the screen's
+// size is only known at run time).
+static int 	finit_width;
+static int 	finit_height;
 
 // location of window on screen
 static int 	f_x;
@@ -519,6 +521,8 @@ void AM_LevelInit(void)
 {
     leveljuststarted = 0;
 
+    finit_width = SCREENWIDTH;
+    finit_height = SCREENHEIGHT - 32 * HIRES;
     f_x = f_y = 0;
     f_w = finit_width;
     f_h = finit_height;
@@ -1318,12 +1322,13 @@ void AM_drawMarks(void)
 	{
 	    //      w = SHORT(marknums[i]->width);
 	    //      h = SHORT(marknums[i]->height);
-	    w = 5; // because something's wrong with the wad, i guess
-	    h = 6; // because something's wrong with the wad, i guess
+	    w = 5 * HIRES; // because something's wrong with the wad, i guess
+	    h = 6 * HIRES; // because something's wrong with the wad, i guess
 	    fx = CXMTOF(markpoints[i].x);
 	    fy = CYMTOF(markpoints[i].y);
+	    // Screen pixels to the patch coordinates V_DrawPatch takes.
 	    if (fx >= f_x && fx <= f_w - w && fy >= f_y && fy <= f_h - h)
-		V_DrawPatch(fx, fy, marknums[i]);
+		V_DrawPatch(fx / HIRES - WIDESCREENDELTA, fy / HIRES, marknums[i]);
 	}
     }
 

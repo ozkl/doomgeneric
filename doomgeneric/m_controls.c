@@ -26,14 +26,19 @@
 // Keyboard controls
 //
 
+// WASD by default (the mouse turns and, with free look, aims); the arrow
+// keys still move forward/back and turn (g_game.c). All of these can be
+// changed in default.cfg (key_up, key_strafeleft...: DOS scan codes).
 int key_right = KEY_RIGHTARROW;
 int key_left = KEY_LEFTARROW;
-int key_up = KEY_UPARROW;
-int key_down = KEY_DOWNARROW; 
-int key_strafeleft = KEY_STRAFE_L;
-int key_straferight = KEY_STRAFE_R;
-int key_fire = KEY_FIRE;
-int key_use = KEY_USE;
+int key_up = 'w';
+int key_down = 's'; 
+int key_strafeleft = 'a';
+int key_straferight = 'd';
+// Real keys, not doomkeys.h's KEY_FIRE/KEY_USE stand-ins: default.cfg holds
+// DOS scan codes, and those have none.
+int key_fire = KEY_RCTRL;
+int key_use = ' ';
 int key_strafe = KEY_RALT;
 int key_speed = KEY_RSHIFT; 
 

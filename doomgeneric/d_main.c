@@ -219,6 +219,8 @@ void D_Display (void)
 			redrawsbar = true;
 		if (inhelpscreensstate && !inhelpscreens)
 			redrawsbar = true;              // just put away the help screen
+		if (menuactivestate && !menuactive)
+			redrawsbar = true;              // just put away a menu: nothing of it left on the bar
 		ST_Drawer (viewheight == 200, redrawsbar );
 		fullscreen = viewheight == 200;
 		break;
@@ -258,7 +260,7 @@ void D_Display (void)
     }
 
     // see if the border needs to be updated to the screen
-    if (gamestate == GS_LEVEL && !automapactive && scaledviewwidth != 320)
+    if (gamestate == GS_LEVEL && !automapactive && scaledviewwidth != SCREENWIDTH)
     {
 		if (menuactive || menuactivestate || !viewactivestate)
 			borderdrawcount = 3;
@@ -287,8 +289,9 @@ void D_Display (void)
 		if (automapactive)
 			y = 4;
 		else
-			y = viewwindowy+4;
-		V_DrawPatchDirect(viewwindowx + (scaledviewwidth - 68) / 2, y,
+			y = viewwindowy/HIRES+4;
+		// Centered over the view, in patch coordinates.
+		V_DrawPatchDirect((viewwindowx + (scaledviewwidth - 68*HIRES) / 2) / HIRES - WIDESCREENDELTA, y,
 							  W_CacheLumpName (DEH_String("M_PAUSE"), PU_CACHE));
     }
 
@@ -358,10 +361,21 @@ void D_BindVariables(void)
 #endif
 
     M_BindVariable("mouse_sensitivity",      &mouseSensitivity);
+    M_BindVariable("mouse_freelook",         &mouse_freelook);
+    M_BindVariable("mouse_invert",           &mouse_invert);
     M_BindVariable("sfx_volume",             &sfxVolume);
     M_BindVariable("music_volume",           &musicVolume);
     M_BindVariable("show_messages",          &showMessages);
     M_BindVariable("screenblocks",           &screenblocks);
+    M_BindVariable("screen_scale",           &screen_scale);
+    M_BindVariable("screen_widescreen",      &screen_widescreen);
+#ifdef BM_HOSTED
+    {
+        extern int video_fullscreen, key_fullscreen;   // the platform's (linux_platform.cpp)
+        M_BindVariable("fullscreen",         &video_fullscreen);
+        M_BindVariable("key_fullscreen",     &key_fullscreen);
+    }
+#endif
     M_BindVariable("detaillevel",            &detailLevel);
     M_BindVariable("snd_channels",           &snd_channels);
     M_BindVariable("vanilla_savegame_limit", &vanilla_savegame_limit);
@@ -751,6 +765,23 @@ void D_IdentifyVersion(void)
 
             I_Error("Unknown or invalid IWAD file.");
         }
+    }
+
+    // An IWAD under another game's name (DOOM2.WAD copied to DOOM.WAD,
+    // say): go by what's in it, so the right maps and music are used.
+
+    if (gamemission == doom && W_CheckNumForName("E1M1") < 0
+     && W_CheckNumForName("MAP01") >= 0)
+    {
+        printf("This IWAD has MAP01 but no E1M1: playing it as Doom II.\n");
+        gamemission = doom2;
+    }
+    else if ((gamemission == doom2 || gamemission == pack_tnt
+              || gamemission == pack_plut)
+          && W_CheckNumForName("MAP01") < 0 && W_CheckNumForName("E1M1") >= 0)
+    {
+        printf("This IWAD has E1M1 but no MAP01: playing it as Doom.\n");
+        gamemission = doom;
     }
 
     // Make sure gamemode is set up correctly
@@ -1355,9 +1386,12 @@ void D_DoomMain (void)
 
     // Load configuration files before initialising other subsystems.
     DEH_printf("M_LoadDefaults: Load system defaults.\n");
-    M_SetConfigFilenames("default.cfg", PROGRAM_PREFIX "doom.cfg");
+    M_SetConfigFilenames("default.cfg", "dgextra.cfg");   // 8.3 names, for DOS
     D_BindVariables();
     M_LoadDefaults();
+
+    // The screen size, before anything allocates screen-sized buffers.
+    I_SetScreenDimensions();
 
     // Save configuration at exit.
     I_AtExit(M_SaveDefaults, false);

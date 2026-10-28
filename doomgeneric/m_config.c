@@ -122,6 +122,20 @@ static default_t	doom_defaults_list[] =
     CONFIG_VARIABLE_INT(mouse_sensitivity),
 
     //!
+    // If non-zero (the default), vertical mouse movement looks up and
+    // down, Quake style, and shots go where the crosshair points (no
+    // autoaim). Zero: vanilla Doom's mouse-forward and autoaim.
+    //
+
+    CONFIG_VARIABLE_INT(mouse_freelook),
+
+    //!
+    // If non-zero, pulling the mouse back looks up (free look only).
+    //
+
+    CONFIG_VARIABLE_INT(mouse_invert),
+
+    //!
     // Volume of sound effects, range 0-15.
     //
 
@@ -494,6 +508,28 @@ static default_t	doom_defaults_list[] =
     //
 
     CONFIG_VARIABLE_INT(screenblocks),
+
+    //!
+    // Render at this many times Doom's resolution: 1 (320x200, the
+    // default), 2 (640x400) or 3 (960x600). -hires N overrides it.
+    //
+
+    CONFIG_VARIABLE_INT(screen_scale),
+
+    //!
+    // If non-zero, widescreen (16:9): the view shows more at the sides,
+    // the status bar, menus and other screens are centered. -widescreen
+    // and -nowidescreen override it.
+    //
+
+    CONFIG_VARIABLE_INT(screen_widescreen),
+
+#ifdef BM_HOSTED
+    // In a window (the Linux build): start fullscreen, and the key that
+    // switches (the one under Esc by default).
+    CONFIG_VARIABLE_INT(fullscreen),
+    CONFIG_VARIABLE_KEY(key_fullscreen),
+#endif
 
     //!
     // @game strife
@@ -1608,7 +1644,6 @@ static const int scantokey[128] =
 
 static void SaveDefaultCollection(default_collection_t *collection)
 {
-#if ORIGCODE
     default_t *defaults;
     int i, v;
     FILE *f;
@@ -1708,7 +1743,6 @@ static void SaveDefaultCollection(default_collection_t *collection)
     }
 
     fclose (f);
-#endif
 }
 
 // Parses integer values in the configuration file
@@ -1748,15 +1782,17 @@ static void SetVariable(default_t *def, char *value)
             // file (save the old value in untranslated)
 
             intparm = ParseIntParameter(value);
+            if (intparm < 0 || intparm >= 128)
+            {
+                // Not a DOS scan code (earlier builds of this port saved
+                // Fire and Use as 163 and 162): keep the default, and
+                // save a proper scan code for it next time.
+                def->untranslated = 0;
+                def->original_translated = * (int *) def->location;
+                break;
+            }
             def->untranslated = intparm;
-            if (intparm >= 0 && intparm < 128)
-            {
-                intparm = scantokey[intparm];
-            }
-            else
-            {
-                intparm = 0;
-            }
+            intparm = scantokey[intparm];
 
             def->original_translated = intparm;
             * (int *) def->location = intparm;
@@ -1770,11 +1806,11 @@ static void SetVariable(default_t *def, char *value)
 
 static void LoadDefaultCollection(default_collection_t *collection)
 {
-#if ORIGCODE
     FILE *f;
     default_t *def;
     char defname[80];
     char strparm[100];
+    char line[256];
 
     // read the file in, overriding any set defaults
     f = fopen(collection->filename, "r");
@@ -1787,9 +1823,27 @@ static void LoadDefaultCollection(default_collection_t *collection)
         return;
     }
 
-    while (!feof(f))
+    while (fgets(line, sizeof(line), f) != NULL)
     {
-        if (fscanf(f, "%79s %99[^\n]\n", defname, strparm) != 2)
+        // "name value": the name, then the rest of the line. Split by
+        // hand: the bare-metal C library has no fscanf or %[.
+        char *p = line, *q;
+        size_t n;
+
+        while (*p == ' ' || *p == '\t')
+            p++;
+        for (n = 0; *p && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n'; p++)
+            if (n < sizeof(defname) - 1)
+                defname[n++] = *p;
+        defname[n] = '\0';
+        while (*p == ' ' || *p == '\t')
+            p++;
+        M_StringCopy(strparm, p, sizeof(strparm));
+        for (q = strparm + strlen(strparm); q > strparm && (q[-1] == '\r' || q[-1] == '\n'
+                                                       || q[-1] == ' ' || q[-1] == '\t'); )
+            *--q = '\0';
+
+        if (defname[0] == '\0' || strparm[0] == '\0')
         {
             // This line doesn't match
 
@@ -1828,7 +1882,6 @@ static void LoadDefaultCollection(default_collection_t *collection)
     }
 
     fclose (f);
-#endif
 }
 
 // Set the default filenames to use for configuration files.
@@ -2042,11 +2095,13 @@ float M_GetFloatVariable(char *name)
 
 static char *GetDefaultConfigDir(void)
 {
-    char *result = (char *)malloc(2);
-    result[0] = '.';
-    result[1] = '\0';
-
-    return result;
+#if defined(__DJGPP__) || defined(BAREMETAL)
+    // As DOS Doom: default.cfg and the saved games (doomsav0.dsg...) in
+    // the current directory. (DOS can't have names starting with a dot.)
+    return strdup("");
+#else
+    return strdup("./");
+#endif
 }
 
 // 

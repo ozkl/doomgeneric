@@ -1,0 +1,7 @@
+build/
+/doom
+default.cfg
+*.dsg
+/ipxsetup
+/sersetup
+/setup

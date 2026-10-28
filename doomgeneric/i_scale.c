@@ -25,6 +25,12 @@
 #include "doomtype.h"
 
 #include "i_video.h"
+
+// Not used by doomgeneric; its tables are built for 320x200.
+#undef SCREENWIDTH
+#undef SCREENHEIGHT
+#define SCREENWIDTH ORIGWIDTH
+#define SCREENHEIGHT ORIGHEIGHT
 #include "m_argv.h"
 #include "z_zone.h"
 

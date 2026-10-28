@@ -72,8 +72,8 @@ lighttable_t**	spritelights;
 
 // constant arrays
 //  used for psprite clipping and initializing clipping
-short		negonearray[SCREENWIDTH];
-short		screenheightarray[SCREENWIDTH];
+short		negonearray[MAXWIDTH];
+short		screenheightarray[MAXWIDTH];
 
 
 //
@@ -586,7 +586,7 @@ void R_ProjectSprite (mobj_t* thing)
     else
     {
 	// diminished light
-	index = xscale>>(LIGHTSCALESHIFT-detailshift);
+	index = (xscale/HIRES)>>(LIGHTSCALESHIFT-detailshift);  // as at 320x200
 
 	if (index >= MAXLIGHTSCALE) 
 	    index = MAXLIGHTSCALE-1;
@@ -740,6 +740,8 @@ void R_DrawPlayerSprites (void)
     int		i;
     int		lightnum;
     pspdef_t*	psp;
+    int		savedcentery;
+    fixed_t	savedcenteryfrac;
     
     // get light level
     lightnum =
@@ -756,6 +758,12 @@ void R_DrawPlayerSprites (void)
     // clip to screen bounds
     mfloorclip = screenheightarray;
     mceilingclip = negonearray;
+
+    // Free look moves the horizon (centery); the weapon doesn't move with it.
+    savedcentery = centery;
+    savedcenteryfrac = centeryfrac;
+    centery = viewheight/2;
+    centeryfrac = centery<<FRACBITS;
     
     // add all active psprites
     for (i=0, psp=viewplayer->psprites;
@@ -765,6 +773,9 @@ void R_DrawPlayerSprites (void)
 	if (psp->state)
 	    R_DrawPSprite (psp);
     }
+
+    centery = savedcentery;
+    centeryfrac = savedcenteryfrac;
 }
 
 
@@ -832,8 +843,8 @@ void R_SortVisSprites (void)
 //
 // R_DrawSprite
 //
-static short		clipbot[SCREENWIDTH];
-static short		cliptop[SCREENWIDTH];
+static short		clipbot[MAXWIDTH];
+static short		cliptop[MAXWIDTH];
 void R_DrawSprite (vissprite_t* spr)
 {
     drawseg_t*		ds;

@@ -37,8 +37,12 @@
 #include "deh_main.h"
 
 #include "d_loop.h"
+#include "d_doomcom.h"
 
 ticcmd_t *netcmds;
+
+static void VanillaCheckNetGame(void);     // below: IPXSETUP / SERSETUP games
+static doomcom_t *vanilla_doomcom(void);
 
 // Called when a player leaves the game
 
@@ -220,6 +224,20 @@ void D_ConnectNetGame(void)
     netgame = D_InitNetGame(&connect_data);
 
     //!
+    // @arg <address>
+    // @category net
+    //
+    // Play a net game through an original DOS network driver (IPXSETUP,
+    // SERSETUP), with this port or the original DOOM.EXE on the other
+    // machines. The driver adds this itself when it starts the game.
+    //
+
+    if (vanilla_doomcom() != NULL)
+    {
+        netgame = true;
+    }
+
+    //!
     // @category net
     //
     // Start the game playing as though in a netgame with a single
@@ -247,6 +265,12 @@ void D_CheckNetGame (void)
     }
 
     D_RegisterLoopCallbacks(&doom_loop_interface);
+
+    if (D_VanillaNet())
+    {
+        VanillaCheckNetGame();
+        return;
+    }
 
     SaveGameSettings(&settings);
     D_StartNetGame(&settings, NULL);
@@ -279,3 +303,681 @@ void D_CheckNetGame (void)
     }
 }
 
+
+
+// ================================================================
+// Vanilla network games: the original DOS drivers (IPXSETUP, SERSETUP).
+//
+// Started from a driver with -net <address>, the game speaks DOOM 1.9's own
+// protocol through the driver's doomcom_t (d_doomcom.h) instead of
+// Chocolate Doom's client/server one, so it can play with the original
+// DOOM.EXE (same IWAD, same version). This is vanilla's d_net.c: lockstep
+// ticcmds, each node sending its own to every other, resends on request,
+// and the key player (player 1) sending the game settings at the start.
+// ================================================================
+
+#include <limits.h>
+#include <stddef.h>
+#include <stdio.h>
+#include <string.h>
+#include "doomkeys.h"
+
+#define NCMD_EXIT       0x80000000
+#define NCMD_RETRANSMIT 0x40000000
+#define NCMD_SETUP      0x20000000
+#define NCMD_KILL       0x10000000      // kill game
+#define NCMD_CHECKSUM   0x0fffffff
+
+#define RESENDCOUNT     10
+#define PL_DRONE        0x80            // bit flag in doomdata->player
+
+doomcom_t *(*I_VanillaNetInit)(void);
+void (*I_VanillaNetCmd)(void);
+
+static doomcom_t  *doomcom;             // the platform's copy of the driver's
+static doomdata_t *netbuffer;           // points inside doomcom
+
+static ticcmd_t localcmds[BACKUPTICS];
+static ticcmd_t vnetcmds[MAXPLAYERS][BACKUPTICS];
+static boolean  vingame[NET_MAXPLAYERS];    // false once a player has left
+static int      nettics[MAXNETNODES];
+static boolean  nodeingame[MAXNETNODES];    // set false as nodes leave game
+static boolean  remoteresend[MAXNETNODES];  // set when local needs tics
+static int      resendto[MAXNETNODES];      // set when remote needs tics
+static int      resendcount[MAXNETNODES];
+static int      nodeforplayer[MAXPLAYERS];
+
+static int      vmaketic;
+static int      vskiptics;
+static int      gametime;
+
+static boolean    reboundpacket;
+static doomdata_t reboundstore;
+static uint8_t    reboundext[sizeof(((doomcom_t *)0)->dataext)];
+static int        reboundlength;
+
+static boolean  nodeisport[MAXNETNODES];    // seen PORT_MARKER from it
+static boolean  packetext;                  // the packet in netbuffer has look_ext_t
+
+int D_VanillaNet(void)
+{
+    return doomcom != NULL;
+}
+
+// The driver's doomcom_t, if the platform has one (-net); asked once.
+static doomcom_t *vanilla_doomcom(void)
+{
+    static boolean asked;
+
+    if (!asked)
+    {
+        asked = true;
+        if (I_VanillaNetInit != NULL && I_VanillaNetCmd != NULL)
+        {
+            doomcom = I_VanillaNetInit();
+            if (doomcom != NULL && doomcom->id != DOOMCOM_ID)
+                I_Error("Doomcom buffer invalid!");
+        }
+    }
+    return doomcom;
+}
+
+// Every other node in the game runs this port: free look may go on.
+int D_NetFreeLook(void)
+{
+    int i;
+
+    if (!doomcom)
+        return false;
+    for (i = 1; i < doomcom->numnodes; i++)
+        if (nodeingame[i] && !nodeisport[i])
+            return false;
+    return true;
+}
+
+// The free-look extension: right after the packet's numtics ticcmds, which
+// is where it goes on the wire (it may run on into doomcom->dataext).
+static look_ext_t *PacketExt(void)
+{
+    return (look_ext_t *) &netbuffer->cmds[netbuffer->numtics];
+}
+
+// Vanilla's wire ticcmd <-> ours.
+static void PackCmd(vanilla_ticcmd_t *w, const ticcmd_t *c)
+{
+    w->forwardmove = c->forwardmove;
+    w->sidemove = c->sidemove;
+    w->angleturn = c->angleturn;
+    w->consistancy = c->consistancy;
+    w->chatchar = c->chatchar;
+    w->buttons = c->buttons;
+}
+
+static void UnpackCmd(ticcmd_t *c, const vanilla_ticcmd_t *w)
+{
+    memset(c, 0, sizeof(*c));
+    c->forwardmove = w->forwardmove;
+    c->sidemove = w->sidemove;
+    c->angleturn = w->angleturn;
+    c->consistancy = w->consistancy;
+    c->chatchar = w->chatchar;
+    c->buttons = w->buttons;
+}
+
+static int NetbufferSize(void)
+{
+    return (int) offsetof(doomdata_t, cmds) + netbuffer->numtics * (int) sizeof(vanilla_ticcmd_t);
+}
+
+// With the free-look extension (packets between copies of this port).
+static int NetbufferExtSize(void)
+{
+    return NetbufferSize() + netbuffer->numtics * (int) sizeof(look_ext_t);
+}
+
+// As DOS vanilla (the Linux port returned 0 here): a weighted sum of the
+// packet's words after the checksum. size: NetbufferSize(), or
+// NetbufferExtSize() for a packet with the extension (it follows the
+// vanilla part directly in doomcom_t).
+static unsigned NetbufferChecksum(int size)
+{
+    unsigned c = 0x1234567;
+    const uint8_t *p = &netbuffer->retransmitfrom;
+    int i, l;
+
+    l = (size - (int) offsetof(doomdata_t, retransmitfrom)) / 4;
+    for (i = 0; i < l; i++)
+    {
+        uint32_t w = p[i*4] | p[i*4+1] << 8 | p[i*4+2] << 16 | (uint32_t) p[i*4+3] << 24;
+        c += w * (i + 1);
+    }
+
+    return c & NCMD_CHECKSUM;
+}
+
+static int ExpandTics(int low)
+{
+    int delta = low - (vmaketic & 0xff);
+
+    if (delta >= -64 && delta <= 64)
+        return (vmaketic & ~0xff) + low;
+    if (delta > 64)
+        return (vmaketic & ~0xff) - 256 + low;
+    if (delta < -64)
+        return (vmaketic & ~0xff) + 256 + low;
+
+    I_Error("ExpandTics: strange value %i at maketic %i", low, vmaketic);
+    return 0;
+}
+
+// ext: the packet has the free-look extension (filled in by the caller);
+// only ever for this node or a node known to run this port.
+static void HSendPacket(int node, unsigned flags, boolean ext)
+{
+    int size = ext && netbuffer->numtics ? NetbufferExtSize() : NetbufferSize();
+
+    netbuffer->checksum = NetbufferChecksum(size) | flags;
+
+    if (!node)
+    {
+        reboundstore = *netbuffer;
+        memcpy(reboundext, doomcom->dataext, sizeof(reboundext));
+        reboundlength = size;
+        reboundpacket = true;
+        return;
+    }
+
+    if (demoplayback)
+        return;
+
+    doomcom->command = CMD_SEND;
+    doomcom->remotenode = node;
+    doomcom->datalength = size;
+    I_VanillaNetCmd();
+}
+
+// Returns false if no packet is waiting.
+static boolean HGetPacket(void)
+{
+    if (reboundpacket)
+    {
+        *netbuffer = reboundstore;
+        memcpy(doomcom->dataext, reboundext, sizeof(reboundext));
+        packetext = reboundlength != NetbufferSize();
+        doomcom->remotenode = 0;
+        reboundpacket = false;
+        return true;
+    }
+
+    if (demoplayback)
+        return false;
+
+    doomcom->command = CMD_GET;
+    I_VanillaNetCmd();
+
+    if (doomcom->remotenode == -1)
+        return false;
+    if (doomcom->remotenode < 0 || doomcom->remotenode >= MAXNETNODES)
+        return false;
+    if (netbuffer->numtics > VANILLA_BACKUPTICS)
+        return false;
+
+    // A vanilla packet, or one with the free-look extension.
+    if (doomcom->datalength == NetbufferSize())
+        packetext = false;
+    else if (netbuffer->numtics && doomcom->datalength == NetbufferExtSize())
+        packetext = true;
+    else
+        return false;
+
+    if (NetbufferChecksum(doomcom->datalength) != (netbuffer->checksum & NCMD_CHECKSUM))
+        return false;
+
+    return true;
+}
+
+static void GetPackets(void)
+{
+    int netconsole, netnode;
+    int realstart, realend;
+
+    while (HGetPacket())
+    {
+        if (netbuffer->checksum & NCMD_SETUP)
+            continue;           // extra setup packet
+
+        netconsole = netbuffer->player & ~PL_DRONE;
+        netnode = doomcom->remotenode;
+        if (netconsole >= MAXPLAYERS)
+            continue;
+
+        // to save bytes, only the low byte of tic numbers are sent
+        realstart = ExpandTics(netbuffer->starttic);
+        realend = realstart + netbuffer->numtics;
+
+        // check for exiting the game
+        if (netbuffer->checksum & NCMD_EXIT)
+        {
+            if (!nodeingame[netnode])
+                continue;
+            nodeingame[netnode] = false;
+            // RunTic (above) shows "Player N left the game".
+            vingame[netconsole] = false;
+            continue;
+        }
+
+        // check for a remote game kill
+        if (netbuffer->checksum & NCMD_KILL)
+            I_Error("Killed by network driver");
+
+        nodeforplayer[netconsole] = netnode;
+
+        // Another copy of this port (see PORT_MARKER).
+        if (packetext || (!(netbuffer->checksum & NCMD_RETRANSMIT)
+                          && netbuffer->retransmitfrom == PORT_MARKER))
+            nodeisport[netnode] = true;
+
+        // check for retransmit request
+        if (resendcount[netnode] <= 0
+         && (netbuffer->checksum & NCMD_RETRANSMIT))
+        {
+            resendto[netnode] = ExpandTics(netbuffer->retransmitfrom);
+            resendcount[netnode] = RESENDCOUNT;
+        }
+        else
+            resendcount[netnode]--;
+
+        // check for out of order / duplicated packet
+        if (realend == nettics[netnode])
+            continue;
+        if (realend < nettics[netnode])
+            continue;
+
+        // check for a missed packet
+        if (realstart > nettics[netnode])
+        {
+            // stop processing until the other system resends the missed tics
+            remoteresend[netnode] = true;
+            continue;
+        }
+
+        // update command store from the packet
+        {
+            int i = nettics[netnode] - realstart;
+
+            remoteresend[netnode] = false;
+            while (nettics[netnode] < realend)
+            {
+                ticcmd_t *dest = &vnetcmds[netconsole][nettics[netnode] % BACKUPTICS];
+
+                UnpackCmd(dest, &netbuffer->cmds[i]);
+                if (packetext)
+                {
+                    dest->lookdelta = PacketExt()[i].lookdelta;
+                    dest->lookflags = PacketExt()[i].lookflags;
+                }
+                i++;
+                nettics[netnode]++;
+            }
+        }
+    }
+}
+
+// Builds ticcmds for the console player, sends out a packet.
+void D_VanillaNetUpdate(void)
+{
+    int nowtime, newtics;
+    int i, j, realstart, gameticdiv;
+    boolean ext;
+
+    // check time
+    nowtime = I_GetTime() / ticdup;
+    newtics = nowtime - gametime;
+    gametime = nowtime;
+
+    if (newtics <= 0)           // nothing new to update
+        goto listen;
+
+    if (vskiptics <= newtics)
+    {
+        newtics -= vskiptics;
+        vskiptics = 0;
+    }
+    else
+    {
+        vskiptics -= newtics;
+        newtics = 0;
+    }
+
+    netbuffer->player = consoleplayer;
+
+    // build new ticcmds for console player
+    gameticdiv = gametic / ticdup;
+    for (i = 0; i < newtics; i++)
+    {
+        I_StartTic();
+        D_ProcessEvents();
+        M_Ticker();             // the menu runs whatever the game's doing
+        if (vmaketic - gameticdiv >= VANILLA_BACKUPTICS/2 - 1)
+            break;              // can't hold any more
+
+        G_BuildTiccmd(&localcmds[vmaketic % BACKUPTICS], vmaketic);
+        vmaketic++;
+    }
+
+    if (singletics)
+        return;                 // singletic update is syncronous
+
+    // send the packet to the other nodes
+    for (i = 0; i < doomcom->numnodes; i++)
+    {
+        if (!nodeingame[i])
+            continue;
+
+        netbuffer->starttic = realstart = resendto[i];
+        netbuffer->numtics = vmaketic - realstart;
+        if (netbuffer->numtics > VANILLA_BACKUPTICS)
+            I_Error("NetUpdate: netbuffer->numtics > BACKUPTICS");
+
+        resendto[i] = vmaketic - doomcom->extratics;
+
+        // Ourselves and other copies of this port get the look extension.
+        ext = i == 0 || nodeisport[i];
+        for (j = 0; j < netbuffer->numtics; j++)
+        {
+            const ticcmd_t *c = &localcmds[(realstart+j) % BACKUPTICS];
+
+            PackCmd(&netbuffer->cmds[j], c);
+            if (ext)
+            {
+                PacketExt()[j].lookdelta = c->lookdelta;
+                PacketExt()[j].lookflags = c->lookflags;
+                PacketExt()[j].reserved = 0;
+            }
+            else if (c->lookflags)
+                I_Error("NetUpdate: free look to a node without it");
+        }
+
+        if (remoteresend[i])
+        {
+            netbuffer->retransmitfrom = nettics[i];
+            HSendPacket(i, NCMD_RETRANSMIT, ext);
+        }
+        else
+        {
+            netbuffer->retransmitfrom = PORT_MARKER;    // vanilla ignores it here
+            HSendPacket(i, 0, ext);
+        }
+    }
+
+    // listen for other packets
+listen:
+    GetPackets();
+}
+
+// Escape aborts while waiting for the other players.
+static void CheckAbort(void)
+{
+    event_t *ev;
+    int stoptic;
+
+    stoptic = I_GetTime() + 2;
+    while (I_GetTime() < stoptic)
+    {
+        I_StartTic();
+        I_Sleep(1);
+    }
+
+    I_StartTic();
+    while ((ev = D_PopEvent()) != NULL)
+    {
+        if (ev->type == ev_keydown && ev->data1 == KEY_ESCAPE)
+            I_Error("Network game synchronization aborted.");
+    }
+}
+
+// The key player (node 0's console player 0) sends the settings; the
+// others wait for them.
+static void ArbitrateNetStart(void)
+{
+    boolean gotinfo[MAXNETNODES];
+    int i, version = G_VanillaVersionCode();
+
+    autostart = true;
+    memset(gotinfo, 0, sizeof(gotinfo));
+
+    if (doomcom->consoleplayer)
+    {
+        // listen for setup info from key player
+        printf("listening for network start info...\n");
+        while (1)
+        {
+            CheckAbort();
+            if (!HGetPacket())
+                continue;
+            if (netbuffer->checksum & NCMD_SETUP)
+            {
+                if (netbuffer->player != version)
+                    I_Error("Different DOOM versions cannot play a net game! "
+                            "(%i here, %i there)", version, netbuffer->player);
+                startskill = netbuffer->retransmitfrom & 15;
+                deathmatch = (netbuffer->retransmitfrom & 0xc0) >> 6;
+                nomonsters = (netbuffer->retransmitfrom & 0x20) > 0;
+                respawnparm = (netbuffer->retransmitfrom & 0x10) > 0;
+                startmap = netbuffer->starttic & 0x3f;
+                startepisode = netbuffer->starttic >> 6;
+                return;
+            }
+        }
+    }
+    else
+    {
+        // key player, send the setup info
+        printf("sending network start info...\n");
+        do
+        {
+            CheckAbort();
+            for (i = 0; i < doomcom->numnodes; i++)
+            {
+                netbuffer->retransmitfrom = startskill;
+                if (deathmatch)
+                    netbuffer->retransmitfrom |= (deathmatch << 6);
+                if (nomonsters)
+                    netbuffer->retransmitfrom |= 0x20;
+                if (respawnparm)
+                    netbuffer->retransmitfrom |= 0x10;
+                netbuffer->starttic = startepisode * 64 + startmap;
+                netbuffer->player = version;
+                netbuffer->numtics = 0;
+                HSendPacket(i, NCMD_SETUP, false);
+            }
+
+            for (i = 10; i && HGetPacket(); --i)
+            {
+                if ((netbuffer->player & 0x7f) < MAXNETNODES)
+                    gotinfo[netbuffer->player & 0x7f] = true;
+            }
+
+            for (i = 1; i < doomcom->numnodes; i++)
+                if (!gotinfo[i])
+                    break;
+        } while (i < doomcom->numnodes);
+    }
+}
+
+// D_CheckNetGame's vanilla half: who's who, and the settings from the key
+// player.
+static void VanillaCheckNetGame(void)
+{
+    int i;
+
+    for (i = 0; i < MAXNETNODES; i++)
+    {
+        nodeingame[i] = false;
+        nettics[i] = 0;
+        remoteresend[i] = false;
+        resendto[i] = 0;
+    }
+
+    netbuffer = &doomcom->data;
+    consoleplayer = displayplayer = doomcom->consoleplayer;
+    if (consoleplayer < 0 || consoleplayer >= MAXPLAYERS
+     || doomcom->numplayers < 1 || doomcom->numplayers > MAXPLAYERS
+     || doomcom->numnodes < 1 || doomcom->numnodes > MAXNETNODES)
+        I_Error("Bad network driver settings: player %i of %i, %i nodes",
+                doomcom->consoleplayer + 1, doomcom->numplayers, doomcom->numnodes);
+    if (doomcom->drone)
+        I_Error("Drone (three-screen) mode isn't supported");
+
+    // Vanilla's sync: free look, demos and the like stay as DOOM.EXE has them.
+    netgame = true;
+    ArbitrateNetStart();
+
+    DEH_printf("startskill %i  deathmatch: %i  startmap: %i  startepisode: %i\n",
+               startskill, deathmatch, startmap, startepisode);
+
+    // read values out of doomcom
+    ticdup = doomcom->ticdup < 1 ? 1 : doomcom->ticdup;
+
+    for (i = 0; i < MAXPLAYERS; i++)
+    {
+        playeringame[i] = i < doomcom->numplayers;
+        vingame[i] = playeringame[i];
+    }
+    for (i = 0; i < doomcom->numnodes; i++)
+        nodeingame[i] = true;
+
+    DEH_printf("player %i of %i (%i nodes)\n",
+               consoleplayer+1, doomcom->numplayers, doomcom->numnodes);
+}
+
+// Called before quitting to leave a net game without hanging the others.
+void D_VanillaQuitNetGame(void)
+{
+    int i, j;
+
+    if (!doomcom || !usergame || consoleplayer == -1 || demoplayback)
+        return;
+
+    // send a bunch of packets for security
+    netbuffer->player = consoleplayer;
+    netbuffer->numtics = 0;
+    for (i = 0; i < 4; i++)
+    {
+        for (j = 1; j < doomcom->numnodes; j++)
+            if (nodeingame[j])
+                HSendPacket(j, NCMD_EXIT, false);
+        I_Sleep(15);
+    }
+}
+
+static int LowTic(void)
+{
+    int i, lowtic = INT_MAX;
+
+    for (i = 0; i < doomcom->numnodes; i++)
+        if (nodeingame[i] && nettics[i] < lowtic)
+            lowtic = nettics[i];
+    return lowtic;
+}
+
+void D_VanillaTryRunTics(void)
+{
+    static int oldentertics, frameon, frameskip[4], oldnettics;
+    int i, lowtic, entertic, realtics, availabletics, counts;
+
+    // get real tics
+    entertic = I_GetTime() / ticdup;
+    realtics = entertic - oldentertics;
+    oldentertics = entertic;
+
+    // get available tics
+    D_VanillaNetUpdate();
+
+    lowtic = LowTic();
+    availabletics = lowtic - gametic/ticdup;
+
+    // decide how many tics to run
+    if (realtics < availabletics-1)
+        counts = realtics+1;
+    else if (realtics < availabletics)
+        counts = realtics;
+    else
+        counts = availabletics;
+
+    if (counts < 1)
+        counts = 1;
+
+    frameon++;
+
+    if (!demoplayback)
+    {
+        // ideally nettics[0] should be 1 - 3 tics above lowtic
+        // if we are consistantly slower, speed up time
+        for (i = 0; i < MAXPLAYERS; i++)
+            if (playeringame[i])
+                break;
+        if (consoleplayer == i)
+        {
+            // the key player does not adapt
+        }
+        else if (i < MAXPLAYERS)
+        {
+            if (nettics[0] <= nettics[nodeforplayer[i]])
+                gametime--;
+            frameskip[frameon & 3] = oldnettics > nettics[nodeforplayer[i]];
+            oldnettics = nettics[0];
+            if (frameskip[0] && frameskip[1] && frameskip[2] && frameskip[3])
+                vskiptics = 1;
+        }
+    }
+
+    // wait for new tics if needed
+    while (lowtic < gametic/ticdup + counts)
+    {
+        D_VanillaNetUpdate();
+        lowtic = LowTic();
+
+        if (lowtic < gametic/ticdup)
+            I_Error("TryRunTics: lowtic < gametic");
+
+        // don't stay in here forever -- give the menu and screen a chance
+        if (I_GetTime()/ticdup - entertic >= 1)
+            return;
+
+        I_Sleep(1);
+    }
+
+    // run the count * ticdup tics
+    while (counts--)
+    {
+        for (i = 0; i < ticdup; i++)
+        {
+            ticcmd_t cmds[NET_MAXPLAYERS];
+            int p, buf = (gametic/ticdup) % BACKUPTICS;
+
+            if (gametic/ticdup > lowtic)
+                I_Error("gametic>lowtic");
+
+            memset(cmds, 0, sizeof(cmds));
+            for (p = 0; p < MAXPLAYERS; p++)
+                cmds[p] = vnetcmds[p][buf];
+            // Our own commands: rebound through node 0 into vnetcmds.
+            RunTic(cmds, vingame);
+            gametic++;
+
+            // modify command for duplicated tics
+            if (i != ticdup-1)
+            {
+                for (p = 0; p < MAXPLAYERS; p++)
+                {
+                    ticcmd_t *cmd = &vnetcmds[p][buf];
+                    cmd->chatchar = 0;
+                    if (cmd->buttons & BT_SPECIAL)
+                        cmd->buttons = 0;
+                }
+            }
+        }
+        D_VanillaNetUpdate();   // check for new console commands
+    }
+}

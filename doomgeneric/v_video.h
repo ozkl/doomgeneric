@@ -64,6 +64,9 @@ void V_DrawPatchDirect(int x, int y, patch_t *patch);
 
 // Draw a linear block of pixels into the view buffer.
 
+// Tile a flat over the first `rows` pixel rows of the current buffer.
+void V_FillFlat(byte *flat, int rows);
+
 void V_DrawBlock(int x, int y, int width, int height, byte *src);
 
 void V_MarkRect(int x, int y, int width, int height);

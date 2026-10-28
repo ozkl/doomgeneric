@@ -992,6 +992,29 @@ P_SpawnMissile
 // P_SpawnPlayerMissile
 // Tries to aim at a nearby monster
 //
+// The integer square root of v (>= 0): exact and the same everywhere.
+static int64_t P_ISqrt64 (int64_t v)
+{
+    uint64_t	r = 0;
+    uint64_t	bit = (uint64_t)1 << 62;
+    uint64_t	n = (uint64_t)v;
+
+    while (bit > n)
+	bit >>= 2;
+    while (bit)
+    {
+	if (n >= r + bit)
+	{
+	    n -= r + bit;
+	    r = (r >> 1) + bit;
+	}
+	else
+	    r >>= 1;
+	bit >>= 2;
+    }
+    return (int64_t)r;
+}
+
 void
 P_SpawnPlayerMissile
 ( mobj_t*	source,
@@ -1007,6 +1030,14 @@ P_SpawnPlayerMissile
     
     // see which target is to be aimed at
     an = source->angle;
+    if (source->player && P_LookActive(source->player))
+    {
+	// Free look: where the crosshair is, no autoaim.
+	slope = LOOK_SLOPE(source->player);
+	linetarget = NULL;
+    }
+    else
+    {
     slope = P_AimLineAttack (source, an, 16*64*FRACUNIT);
     
     if (!linetarget)
@@ -1026,6 +1057,7 @@ P_SpawnPlayerMissile
 	    slope = 0;
 	}
     }
+    }
 		
     x = source->x;
     y = source->y;
@@ -1038,11 +1070,26 @@ P_SpawnPlayerMissile
 
     th->target = source;
     th->angle = an;
-    th->momx = FixedMul( th->info->speed,
-			 finecosine[an>>ANGLETOFINESHIFT]);
-    th->momy = FixedMul( th->info->speed,
-			 finesine[an>>ANGLETOFINESHIFT]);
-    th->momz = FixedMul( th->info->speed, slope);
+    {
+	fixed_t	speed = th->info->speed;
+	fixed_t	hspeed = speed;
+
+	// Free look: the missile's speed along where it's aimed, as vanilla's
+	// speed is along the ground. Vanilla adds speed*slope upward on top,
+	// which its autoaim slopes keep small; a steep free-look shot would go
+	// up to twice as fast. Integer only, so every machine in a net game
+	// gets the same.
+	if (source->player && P_LookActive(source->player) && slope)
+	{
+	    int64_t len = P_ISqrt64((int64_t)FRACUNIT*FRACUNIT + (int64_t)slope*slope);
+	    hspeed = (fixed_t)(((int64_t)speed << FRACBITS) / len);
+	}
+	th->momx = FixedMul( hspeed,
+			     finecosine[an>>ANGLETOFINESHIFT]);
+	th->momy = FixedMul( hspeed,
+			     finesine[an>>ANGLETOFINESHIFT]);
+	th->momz = FixedMul( hspeed, slope);
+    }
 
     P_CheckMissileSpawn (th);
 }

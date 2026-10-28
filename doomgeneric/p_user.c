@@ -27,6 +27,7 @@
 #include "p_local.h"
 
 #include "doomstat.h"
+#include "d_doomcom.h"    // D_NetFreeLook
 
 
 
@@ -224,6 +225,19 @@ void P_DeathThink (player_t* player)
 
 
 //
+// P_FreeLook
+// Whether the console player's new ticcmds ask for free look: the config
+// says so, this isn't a demo (they're vanilla), and in a net game every
+// other machine runs this port too (d_net.c). The game itself goes by each
+// ticcmd's LOOK_ACTIVE (P_LookActive), so all machines agree.
+//
+boolean P_FreeLook (void)
+{
+    return mouse_freelook && !demoplayback && !demorecording
+        && (!netgame || D_NetFreeLook());
+}
+
+//
 // P_PlayerThink
 //
 void P_PlayerThink (player_t* player)
@@ -245,6 +259,25 @@ void P_PlayerThink (player_t* player)
 	cmd->forwardmove = 0xc800/512;
 	cmd->sidemove = 0;
 	player->mo->flags &= ~MF_JUSTATTACKED;
+    }
+
+    // Free look: pitch from the mouse; level out when dead or turned off.
+    if (player->playerstate == PST_DEAD || !P_LookActive(player))
+    {
+	if (player->lookdir > 64)
+	    player->lookdir -= 64;
+	else if (player->lookdir < -64)
+	    player->lookdir += 64;
+	else
+	    player->lookdir = 0;
+    }
+    else
+    {
+	player->lookdir += cmd->lookdelta;
+	if (player->lookdir > LOOKDIR_MAX)
+	    player->lookdir = LOOKDIR_MAX;
+	else if (player->lookdir < -LOOKDIR_MAX)
+	    player->lookdir = -LOOKDIR_MAX;
     }
 			
 	

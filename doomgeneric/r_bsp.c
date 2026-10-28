@@ -78,7 +78,7 @@ typedef	struct
 } cliprange_t;
 
 
-#define MAXSEGS		32
+#define MAXSEGS		(MAXWIDTH/2+1)   // disjoint ranges: at most half the columns (vanilla: 32)
 
 // newend is one past the last valid seg
 cliprange_t*	newend;

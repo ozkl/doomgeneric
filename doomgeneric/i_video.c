@@ -96,6 +96,60 @@ void I_GetEvent(void);
 
 byte *I_VideoBuffer = NULL;
 
+// The screen's size: see i_video.h.
+int SCREENWIDTH = ORIGWIDTH;
+int SCREENHEIGHT = ORIGHEIGHT;
+int HIRES = 1;
+int WIDESCREENDELTA = 0;
+int NONWIDEWIDTH = ORIGWIDTH;
+int screen_scale = 1;
+int screen_widescreen = 0;
+
+// Called once, after the config is loaded and before anything allocates
+// screen-sized buffers.
+void I_SetScreenDimensions(void)
+{
+    int i;
+
+    //!
+    // @arg <n>
+    // @category video
+    //
+    // Render at n times Doom's resolution (1-3): 2 is 640x400, or 852x400
+    // with -widescreen.
+    //
+
+    i = M_CheckParmWithArgs("-hires", 1);
+    if (i > 0)
+        screen_scale = atoi(myargv[i+1]);
+
+    //!
+    // @category video
+    //
+    // Widescreen (16:9): the view shows more at the sides. -nowidescreen
+    // turns it off when default.cfg has it on.
+    //
+
+    if (M_CheckParm("-widescreen") > 0)
+        screen_widescreen = 1;
+    if (M_CheckParm("-nowidescreen") > 0)
+        screen_widescreen = 0;
+
+    if (screen_scale < 1)
+        screen_scale = 1;
+    if (screen_scale > MAXHIRES)
+        screen_scale = MAXHIRES;
+
+    HIRES = screen_scale;
+    SCREENWIDTH = (screen_widescreen ? WIDEWIDTH : ORIGWIDTH) * HIRES;
+    SCREENHEIGHT = ORIGHEIGHT * HIRES;
+    NONWIDEWIDTH = ORIGWIDTH * HIRES;
+    WIDESCREENDELTA = screen_widescreen ? (WIDEWIDTH - ORIGWIDTH) / 2 : 0;
+
+    printf("I_SetScreenDimensions: %dx%d%s\n", SCREENWIDTH, SCREENHEIGHT,
+           screen_widescreen ? " (widescreen)" : "");
+}
+
 // If true, game is running as a screensaver
 
 boolean screensaver_mode = false;
@@ -208,8 +262,14 @@ void I_InitGraphics (void)
     char *mode;
 
 	memset(&s_Fb, 0, sizeof(struct FB_ScreenInfo));
+#ifdef CMAP256
+	// The platform gets the frame as Doom drew it, SCREENWIDTH x SCREENHEIGHT.
+	s_Fb.xres = SCREENWIDTH;
+	s_Fb.yres = SCREENHEIGHT;
+#else
 	s_Fb.xres = DOOMGENERIC_RESX;
 	s_Fb.yres = DOOMGENERIC_RESY;
+#endif
 	s_Fb.xres_virtual = s_Fb.xres;
 	s_Fb.yres_virtual = s_Fb.yres;
 

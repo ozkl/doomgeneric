@@ -254,7 +254,7 @@
 #define ST_OUTHEIGHT		1
 
 #define ST_MAPTITLEX \
-    (SCREENWIDTH - ST_MAPWIDTH * ST_CHATFONTWIDTH)
+    (ORIGWIDTH - ST_MAPWIDTH * ST_CHATFONTWIDTH)
 
 #define ST_MAPTITLEY		0
 #define ST_MAPHEIGHT		1
@@ -420,6 +420,14 @@ void ST_refreshBackground(void)
     {
         V_UseBuffer(st_backing_screen);
 
+        // Widescreen: the border's flat beside the 320-wide status bar.
+        if (WIDESCREENDELTA)
+        {
+            V_FillFlat(W_CacheLumpName(DEH_String(gamemode == commercial ? "GRNROCK" : "FLOOR7_2"),
+                                       PU_CACHE),
+                       ST_HEIGHT * HIRES);
+        }
+
 	V_DrawPatch(ST_X, 0, sbar);
 
 	if (netgame)
@@ -427,7 +435,9 @@ void ST_refreshBackground(void)
 
         V_RestoreBuffer();
 
-	V_CopyRect(ST_X, 0, st_backing_screen, ST_WIDTH, ST_HEIGHT, ST_X, ST_Y);
+	V_CopyRect(ST_X - WIDESCREENDELTA, 0, st_backing_screen,
+	           SCREENWIDTH / HIRES, ST_HEIGHT,
+	           ST_X - WIDESCREENDELTA, ST_Y);
     }
 
 }
@@ -1411,6 +1421,7 @@ void ST_Stop (void)
 void ST_Init (void)
 {
     ST_loadData();
-    st_backing_screen = (byte *) Z_Malloc(ST_WIDTH * ST_HEIGHT, PU_STATIC, 0);
+    // At screen resolution and the screen's full width (widescreen sides).
+    st_backing_screen = (byte *) Z_Malloc(SCREENWIDTH * ST_HEIGHT * HIRES, PU_STATIC, 0);
 }
 

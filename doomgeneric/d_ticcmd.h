@@ -38,7 +38,10 @@ typedef struct
     byte buttons;
     // villsa [STRIFE] according to the asm,
     // consistancy is a short, not a byte
-    byte consistancy;           // checks for net game
+    // (Doom's is a short too: the low 16 bits of the player's x, compared
+    // by every peer in a net game, so it must be all of it to play with
+    // the original DOOM.EXE.)
+    short consistancy;          // checks for net game
 
     // villsa - Strife specific:
 
@@ -49,6 +52,14 @@ typedef struct
 
     byte lookfly;               // look/fly up/down/centering
     byte arti;                  // artitype_t to use
+
+    // Free look: change in pitch this tic, in player_t.lookdir units, and
+    // LOOK_ACTIVE when this player is free-looking (crosshair aim, no
+    // autoaim) this tic. Not in demos; in net games, sent only between
+    // copies of this port (d_net.c), so with the original DOOM.EXE in
+    // the game it's always off.
+    short lookdelta;
+    byte lookflags;
 } ticcmd_t;
 
 

@@ -22,10 +22,34 @@
 
 #include "doomtype.h"
 
-// Screen width and height.
+// Screen width and height: set once at startup (I_SetScreenDimensions),
+// from screen_scale (1-3) and screen_widescreen in default.cfg or -hires N
+// and -widescreen / -nowidescreen. 320x200 by default.
+//
+// Everything drawn as a patch (menus, status bar, HUD, intermission...)
+// stays in ORIGWIDTH x ORIGHEIGHT coordinates; the 2D code scales it by
+// HIRES and centers it, WIDESCREENDELTA (in those coordinates) from the
+// left. The 3D view uses the whole width: a 16:9 screen shows more at
+// the sides. Pixels keep Doom's shape (1.2 times taller than wide), so a
+// widescreen 426x200 picture is 16:9 when shown at 426x240.
 
-#define SCREENWIDTH  320
-#define SCREENHEIGHT 200
+#define ORIGWIDTH   320
+#define ORIGHEIGHT  200
+#define WIDEWIDTH   426                 // 16:9 at Doom's pixel shape
+#define MAXHIRES    3
+#define MAXWIDTH    (WIDEWIDTH * MAXHIRES)
+#define MAXHEIGHT   (ORIGHEIGHT * MAXHIRES)
+
+extern int SCREENWIDTH;                 // in pixels
+extern int SCREENHEIGHT;
+extern int HIRES;                       // pixels per ORIGWIDTH unit: 1, 2 or 3
+extern int WIDESCREENDELTA;             // 4:3 area's left edge, in ORIGWIDTH units
+extern int NONWIDEWIDTH;                // the 4:3 part's width, in pixels
+
+extern int screen_scale;                // config: 1-3
+extern int screen_widescreen;           // config: 0 or 1
+
+void I_SetScreenDimensions(void);
 
 // Screen width used for "squash" scale functions
 
